@@ -1,0 +1,61 @@
+# ============================================================
+# 이 저장소에는 개인정보가 들어가면 안 된다 (설계안 §15.4).
+# .gitignore 는 1차 차단일 뿐이다 — 커밋 때 scripts/check-privacy.mjs 가 다시 본다.
+# ============================================================
+
+# ---- 빌드 결과 ----
+node_modules/
+dist/
+dist-ssr/
+src-tauri/target/
+src-tauri/gen/
+*.local
+
+# ---- 자료 파일 (강사·발급 기록이 들어 있다) ----
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.sqlite
+*.sqlite3
+*.restore-pending
+*.part
+backups/
+exports/
+
+# ---- 증명서 출력물 · 엑셀 원본 (실명·주민번호가 들어 있을 수 있다) ----
+*.pdf
+*.xlsx
+*.xlsm
+*.xls
+*.csv
+*.hwp
+*.hwpx
+
+# ---- 로그 · 진단 ----
+*.log
+logs/
+*.dmp
+
+# ---- 키 · 비밀번호 · 환경변수 ----
+*.key
+*.key.pub
+*.pem
+*.dpapi
+.env
+.env.*
+PASSWORD*.txt
+.tauri/
+.careercert-release/
+
+# ---- 개인 작업 폴더 ----
+scratch/
+samples/
+private/
+
+# ---- 편집기 ----
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,91 @@
+/* ============================================================
+   디자인 토큰 — 학생명단 앱의 토큰을 가져와 주색만 초록(앱 아이콘)으로 바꿨다
+   색은 장식이 아니라 상태 전달에만 쓴다.
+   ============================================================ */
+
+:root {
+  /* Primary (앱 아이콘 초록) */
+  --primary:        #2F6F5E;
+  --primary-hover:  #275C4E;
+  --primary-active: #1F4A3F;
+  --primary-soft:   #E8F2EF;
+  --primary-border: #B5D3CA;
+  --primary-text:   #245748;
+
+  /* Neutral */
+  --white:      #FFFFFF;
+  --bg:         #FFFFFF;
+  --surface-2:  #F2F3F5;     /* 사이드바·헤더·입력 배경 */
+  --surface-3:  #E9EAED;     /* hover */
+  --border:     #E3E5E8;
+  --border-strong: #D4D7DC;
+  --text:       #060607;
+  --text-2:     #2E3338;
+  --text-muted: #4F5660;
+  --text-faint: #80848E;
+  --text-invert: #FFFFFF;
+
+  /* 상태 */
+  --warn:        #FAA81A;
+  --warn-soft:   #FFF4DD;
+  --warn-text:   #8A5A00;
+  --warn-border: #F7D48A;
+
+  --error:        #ED4245;
+  --error-soft:   #FDECEC;
+  --error-text:   #B12225;
+  --error-border: #F7B4B5;
+
+  --success:        #3BA55D;
+  --success-soft:   #E8F5EC;
+  --success-text:   #1F6E39;
+  --success-border: #A9DBB8;
+
+  --info:        #2F6F5E;
+  --info-soft:   var(--primary-soft);
+  --info-text:   var(--primary-text);
+
+  --neutral-soft: #E9EAED;
+  --neutral-text: #4F5660;
+
+  /* 글꼴 */
+  --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', 'Noto Sans KR',
+    Roboto, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, 'D2Coding', monospace;
+
+  --fs-xs:   12px;
+  --fs-sm:   13px;
+  --fs-base: 14px;
+  --fs-md:   15px;
+  --fs-lg:   18px;
+  --fs-xl:   22px;
+  --fs-2xl:  26px;
+
+  --lh-tight: 1.25;
+  --lh-base:  1.5;
+
+  /* 간격 (compact) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* 모서리 · 그림자 */
+  --radius-sm:   4px;
+  --radius:      8px;
+  --radius-lg:   12px;
+  --radius-full: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(6, 7, 7, 0.06);
+  --shadow:    0 2px 8px rgba(6, 7, 7, 0.08);
+  --shadow-lg: 0 8px 24px rgba(6, 7, 7, 0.14);
+
+  /* 레이아웃 */
+  --sidebar-w: 224px;
+  --topbar-h:  56px;
+  --control-h: 34px;
+}

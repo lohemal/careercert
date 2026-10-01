@@ -1,0 +1,4 @@
+#!/bin/sh
+# 개인정보·자료 파일·비밀 키가 커밋되는 것을 막는다 (설계안 §15.4).
+# 설치: npm run hooks:install  (git config core.hooksPath .githooks)
+node scripts/check-privacy.mjs || exit 1
