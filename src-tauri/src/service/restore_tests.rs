@@ -13,7 +13,7 @@ use crate::service::portable::{counts, prepare};
 const NOW: &str = "2026-10-02T09:00:00";
 
 /// 파일 자료로 만든 세계: 발급 1건 + 복구 비밀번호
-fn file_world(tag: &str) -> (std::path::PathBuf, World, i64) {
+fn file_world(tag: &str) -> (crate::db::testutil::TempDir, World, i64) {
     let dir = tmp_dir(tag);
     let w = world_in(Db::open(&dir.join(DB_FILE)).unwrap());
     let id = ready(&w);
@@ -132,7 +132,8 @@ fn 대기_파일이_바뀌었으면_적용하지_않고_지금_자료를_지킨�
     drop(prepared);
     drop(w);
     // 대기 파일을 다른 내용으로
-    let other = tmp_dir("restore-swap-other").join(DB_FILE);
+    let other_dir = tmp_dir("restore-swap-other");
+    let other = other_dir.join(DB_FILE);
     {
         let o = Db::open(&other).unwrap();
         o.backup_to(&pending_path(&path)).unwrap();
@@ -171,4 +172,17 @@ fn 적용_뒤_검증에_실패하면_되돌려_지금_자료를_지킨다() {
 fn 대기_중인_복원이_없으면_아무것도_하지_않는다() {
     let dir = tmp_dir("restore-none");
     assert_eq!(apply_pending(&dir.join(DB_FILE), NOW), Applied::Nothing);
+}
+
+#[test]
+fn 복원하면_그_백업을_마지막_이동용_백업으로_본다() {
+    let (_dir, w, _) = file_world("restore-reminder");
+    let bytes = package(&w.db);
+    let created = crate::service::portable::read_header(&bytes).unwrap().created_at;
+    let (path, applied) = restore_into(w.db, &bytes);
+    assert!(matches!(applied, Applied::Done { .. }));
+    let db = Db::open(&path).unwrap();
+    let r = db.read(|c| crate::service::reminder::reminder(c, chrono::NaiveDate::from_ymd_opt(2026, 10, 2).unwrap())).unwrap();
+    assert_eq!(r.state, crate::service::reminder::State::Current);
+    assert_eq!(r.last_at.as_deref(), Some(created.as_str()));
 }

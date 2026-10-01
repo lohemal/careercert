@@ -16,6 +16,8 @@ export const RECOVERY_MAX = 1024
 export const recoveryApi = {
   set: (password: string, confirm: string) => invoke<void>('recovery_set', { password, confirm }),
   change: (old: string, password: string, confirm: string) => invoke<void>('recovery_change', { old, password, confirm }),
+  /** 분실 재설정 — 이 PC 의 키로. 경고 확인 필수 */
+  reset: (password: string, confirm: string, acknowledged: boolean) => invoke<void>('recovery_reset', { password, confirm, acknowledged }),
 }
 
 // ---------------- 이동용 백업 · 복원 ----------------
@@ -51,7 +53,16 @@ export interface RestorePreview {
   sameWindowsUser: boolean
 }
 
+export interface BackupReminder {
+  /** NO_DATA · NEVER · CHANGED · CURRENT */
+  state: string
+  lastAtLabel: string | null
+  stale: boolean
+  messages: string[]
+}
+
 export const backupApi = {
+  reminder: () => invoke<BackupReminder>('backup_reminder'),
   exportPortable: (password: string) => invoke<ExportResult>('backup_export', { password }),
   pick: () => invoke<BackupHeader | null>('restore_pick'),
   unlock: (password: string) => invoke<RestorePreview>('restore_unlock', { password }),

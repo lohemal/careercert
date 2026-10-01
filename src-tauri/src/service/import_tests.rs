@@ -113,12 +113,14 @@ fn 강사명단_시트와_머리글_줄을_찾고_대응한_열만_꺼낸다() {
 #[test]
 fn xlsm_도_같은_방식으로_읽는다() {
     let bytes = xlsx(&[row("김가상", "마술", V::S("2022.3.4."), V::S("2023.2.10"))]);
-    let path = tmp_dir("import-xlsm").join("명단.xlsm");
+    let tmp = tmp_dir("import-xlsm");
+    let path = tmp.join("명단.xlsm");
     std::fs::write(&path, &bytes).unwrap();
     let ex = read(&path, None).unwrap();
     assert_eq!(ex.kind, SourceKind::Xlsm);
     assert_eq!(ex.rows.len(), 1);
-    let csv = tmp_dir("import-csv").join("명단.csv");
+    let tmp2 = tmp_dir("import-csv");
+    let csv = tmp2.join("명단.csv");
     std::fs::write(&csv, "성명").unwrap();
     assert!(read(&csv, None).is_err(), "엑셀 통합 문서만");
 }

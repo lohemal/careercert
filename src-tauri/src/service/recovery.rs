@@ -70,6 +70,41 @@ pub fn change(conn: &Connection, old: &Password, new: &Password, confirm: &Passw
     Ok(())
 }
 
+/// **분실 재설정** — 기존 비밀번호를 모를 때. [변경]과 다른 동작이다.
+///
+/// 이 PC·이 Windows 계정의 DPAPI 로 **모든** 데이터 키를 풀 수 있을 때만 허용한다(하나라도 안 풀리면 거절 —
+/// 그런 경우는 다른 PC 에서 옮겨 온 자료이므로 복구 비밀번호로 복원해야 한다). 경고를 확인해야 하고,
+/// 새 blob 은 새 비밀번호로 실제로 풀어 같은 키인지 확인한 뒤 교체한다. 데이터 키·암호문은 그대로다.
+pub fn reset(conn: &Connection, password: &Password, confirm: &Password, acknowledged: bool, now: &str) -> AppResult<()> {
+    if !acknowledged {
+        return Err(AppError::new("RECOVERY_RESET_UNCONFIRMED", "재설정 안내를 확인해야 재설정할 수 있습니다."));
+    }
+    recovery::validate_new(password, confirm)?;
+    let rows = keys::all(conn)?;
+    if rows.is_empty() || rows.iter().any(|r| r.recovery_blob.is_none()) {
+        return Err(not_set());
+    }
+    let mut opened = Vec::with_capacity(rows.len());
+    for row in &rows {
+        let key = keys::open_dpapi(row).map_err(|_| {
+            AppError::new(
+                "RECOVERY_RESET_UNAVAILABLE",
+                "이 PC·이 Windows 계정에서 자료 암호 키를 열 수 없어 재설정할 수 없습니다. 기존 복구 비밀번호로 복원하거나 비밀번호를 변경해 주세요.",
+            )
+        })?;
+        opened.push(key);
+    }
+    let mut blobs = Vec::with_capacity(opened.len());
+    for key in &opened {
+        blobs.push(wrap_checked(key, password)?);
+    }
+    for (key, blob) in opened.iter().zip(&blobs) {
+        keys::set_recovery(conn, &key.key_id, blob, now)?;
+    }
+    audit::add(conn, now, Action::RecoveryReset, None, &format!("복구 비밀번호 분실 재설정 · 키 {}개", opened.len()))?;
+    Ok(())
+}
+
 /// 비밀번호로 모든 키를 푼다. 설정되지 않은 키가 있으면 `RECOVERY_NOT_SET`, 틀리면 `RECOVERY_PASSWORD_WRONG`.
 /// 이 PC 의 DPAPI 사본이 풀리면 같은 키인지도 맞춰 본다.
 pub fn open_all(conn: &Connection, password: &Password) -> AppResult<Vec<DataKey>> {

@@ -10,6 +10,10 @@ import s from './data.module.css'
 export const RECOVERY_NOT_SET_WARNING =
   '복구 비밀번호가 설정되지 않았습니다. PC 고장·교체 또는 Windows 계정 변경 시 기존 발급 기록의 개인정보를 복구하지 못할 수 있습니다.'
 
+/** 분실 재설정에서 반드시 보이고 확인받는 경고 */
+export const RESET_WARNING =
+  '새 복구 비밀번호를 설정해도 이전에 만든 이동용 백업의 비밀번호는 변경되지 않습니다. 기존 이동용 백업은 백업을 만들 당시 사용한 비밀번호가 있어야 열 수 있습니다.'
+
 const CANNOT_RECOVER =
   '복구 비밀번호는 프로그램에서도 확인하거나 되찾을 수 없습니다. 잊어버리면 다른 PC 또는 다른 Windows 계정에서 암호화된 발급 개인정보를 복구할 수 없습니다.'
 
@@ -24,7 +28,7 @@ function len(v: string) {
  */
 export function RecoverySection() {
   const recovery = useQuery({ queryKey: ['recovery'], queryFn: historyApi.recovery, staleTime: 0 })
-  const [dialog, setDialog] = useState<'set' | 'change' | null>(null)
+  const [dialog, setDialog] = useState<Mode | null>(null)
   const [done, setDone] = useState<string | null>(null)
   const r = recovery.data
 
@@ -52,9 +56,14 @@ export function RecoverySection() {
           </Button>
         )}
         {r?.ready && (
-          <Button icon={KeyRound} onClick={() => setDialog('change')}>
-            복구 비밀번호 변경
-          </Button>
+          <>
+            <Button icon={KeyRound} onClick={() => setDialog('change')}>
+              복구 비밀번호 변경
+            </Button>
+            <Button variant="ghost" onClick={() => setDialog('reset')} title="기존 비밀번호를 잊었을 때 — 이 PC 의 자료 키로 새 비밀번호를 정합니다">
+              비밀번호를 잊었을 때 (재설정)
+            </Button>
+          </>
         )}
       </div>
       {dialog && (
@@ -71,26 +80,42 @@ export function RecoverySection() {
   )
 }
 
-function PasswordDialog({ mode, onClose, onDone }: { mode: 'set' | 'change'; onClose: () => void; onDone: (text: string) => void }) {
+type Mode = 'set' | 'change' | 'reset'
+
+const TITLE: Record<Mode, string> = { set: '복구 비밀번호 설정', change: '복구 비밀번호 변경', reset: '복구 비밀번호 분실 재설정' }
+
+/**
+ * set: 처음 설정 · change: 기존 비밀번호 → 새 비밀번호 · reset: 기존 비밀번호 없이 이 PC 의 자료 키로 새 비밀번호
+ * (reset 은 이 PC·이 Windows 계정에서 키를 열 수 있을 때만 서버가 허용한다)
+ */
+function PasswordDialog({ mode, onClose, onDone }: { mode: Mode; onClose: () => void; onDone: (text: string) => void }) {
   const qc = useQueryClient()
   const [old, setOld] = useState('')
   const [pw, setPw] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [ack, setAck] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<unknown>(null)
   const n = len(pw)
   const tooShort = n < RECOVERY_MIN
   const mismatch = confirm.length > 0 && pw !== confirm
-  const ready = !tooShort && n <= RECOVERY_MAX && pw === confirm && (mode === 'set' || old.length > 0)
+  const ready = !tooShort && n <= RECOVERY_MAX && pw === confirm && (mode !== 'change' || old.length > 0) && (mode !== 'reset' || ack)
 
   const run = async () => {
     setBusy(true)
     setError(null)
     try {
       if (mode === 'set') await recoveryApi.set(pw, confirm)
-      else await recoveryApi.change(old, pw, confirm)
+      else if (mode === 'change') await recoveryApi.change(old, pw, confirm)
+      else await recoveryApi.reset(pw, confirm, ack)
       void qc.invalidateQueries({ queryKey: ['recovery'] })
-      onDone(mode === 'set' ? '복구 비밀번호를 설정했습니다.' : '복구 비밀번호를 바꿨습니다. 이전 비밀번호는 더 이상 쓰지 않습니다.')
+      onDone(
+        mode === 'set'
+          ? '복구 비밀번호를 설정했습니다.'
+          : mode === 'change'
+            ? '복구 비밀번호를 바꿨습니다. 이전 비밀번호는 더 이상 쓰지 않습니다.'
+            : '복구 비밀번호를 재설정했습니다. 이전에 만든 이동용 백업은 여전히 그때의 비밀번호로만 열립니다 — 새 이동용 백업을 만들어 두세요.',
+      )
     } catch (e) {
       setError(e)
     } finally {
@@ -101,7 +126,7 @@ function PasswordDialog({ mode, onClose, onDone }: { mode: 'set' | 'change'; onC
 
   return (
     <Modal
-      title={mode === 'set' ? '복구 비밀번호 설정' : '복구 비밀번호 변경'}
+      title={TITLE[mode]}
       onClose={onClose}
       busy={busy}
       width={520}
@@ -111,11 +136,25 @@ function PasswordDialog({ mode, onClose, onDone }: { mode: 'set' | 'change'; onC
             닫기
           </Button>
           <Button variant="primary" onClick={run} disabled={busy || !ready}>
-            {busy ? '확인 중…' : mode === 'set' ? '설정' : '변경'}
+            {busy ? '확인 중…' : mode === 'set' ? '설정' : mode === 'change' ? '변경' : '재설정'}
           </Button>
         </>
       }
     >
+      {mode === 'reset' && (
+        <>
+          <p className={s.help}>
+            기존 복구 비밀번호를 잊었을 때 쓰는 기능입니다. 기존 비밀번호를 묻지 않고, <b>이 PC·이 Windows 계정에서 열 수 있는 자료 키</b>로 새 복구 비밀번호를
+            정합니다. 이 PC 에서 자료 키를 열 수 없으면(다른 PC 에서 옮겨 온 자료 등) 재설정할 수 없습니다.
+          </p>
+          <Notice tone="error">
+            <b>{RESET_WARNING}</b>
+          </Notice>
+          <label className={s.agree}>
+            <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} /> 위 내용을 확인했습니다. 재설정 뒤 새 이동용 백업을 만들겠습니다.
+          </label>
+        </>
+      )}
       <Notice tone="warn">{CANNOT_RECOVER}</Notice>
       <p className={s.help}>
         {RECOVERY_MIN}자 이상이면 됩니다. 문자 종류를 섞을 필요는 없으니 <b>기억하기 쉬운 긴 문장</b>을 권합니다(예: 띄어쓰기를 포함한 짧은 문장).

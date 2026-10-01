@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
+import { UpdateNotice } from './UpdateNotice'
 import s from './AppShell.module.css'
 
 interface MenuItem {
@@ -85,6 +86,8 @@ export function AppShell({ appVersion, sandbox, schoolName }: Props) {
           ))}
         </nav>
 
+        {/* 실제용 설치본에서만 새 버전을 확인한다 */}
+        <UpdateNotice enabled={!sandbox && !import.meta.env.DEV} />
         <div className={s.sidebarFoot}>
           {sandbox ? <span className={s.sandboxChip}>연습용</span> : <span />}
           <span className={s.version}>v{appVersion}</span>

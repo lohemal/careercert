@@ -1,7 +1,7 @@
 {
   "name": "career-cert",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -17,11 +17,16 @@
     "test": "npm run test:scripts && npm run test:ui && npm run test:rust",
     "check:privacy": "node scripts/check-privacy.mjs",
     "check:print": "node scripts/print-check.mjs",
-    "hooks:install": "git config core.hooksPath .githooks"
+    "hooks:install": "git config core.hooksPath .githooks",
+    "version:set": "node scripts/set-version.mjs",
+    "check:version": "node scripts/check-version.mjs",
+    "check:release": "node scripts/check-release.mjs",
+    "check:public": "node scripts/check-public-safe.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.7",
     "@tauri-apps/api": "^2.1.1",
+    "@tauri-apps/plugin-updater": "^2.13.1",
     "lucide-react": "^0.475.0",
     "pdfjs-dist": "^6.3.289",
     "react": "^18.3.1",

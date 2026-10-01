@@ -1,0 +1,111 @@
+name: 릴리스 만들기
+
+# 버전 태그를 올리면 설치 파일을 만들어 릴리스에 올린다.
+#
+#   npm run version:set 0.1.1
+#   git add . && git commit -m "v0.1.1"
+#   git tag -a v0.1.1 -m "v0.1.1" && git push origin main --tags
+#
+# 필요한 저장소 secret (Settings > Secrets and variables > Actions)
+#   TAURI_SIGNING_PRIVATE_KEY           업데이트 서명 키 파일의 **내용** (경로가 아니다)
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  그 키의 비밀번호 (BOM·줄바꿈 없이)
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    # Windows 전용 프로그램이다 (WebView2 인쇄 · DPAPI)
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node 준비
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Rust 준비
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust 빌드 캐시
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: 의존성 설치
+        run: npm ci
+
+      # 여기서 막히면 릴리스가 만들어지지 않는다.
+      - name: 버전이 다섯 곳에서 같은지
+        run: npm run check:version
+
+      - name: 공개해도 되는지 (추적 파일)
+        run: npm run check:public
+
+      - name: 개인정보 검사 (저장소 전체)
+        run: npm run check:privacy -- --all
+
+      - name: 시험 (검사 스크립트 · 화면 규칙 · Rust)
+        run: npm test
+
+      - name: 설치 파일 만들기 · 서명
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npm run tauri build
+
+      # 앱 이름이 한글이라 설치 파일 이름도 한글이다. GitHub 릴리스는 첨부 파일 이름에서
+      # 한글을 떼어 내므로 영문 이름으로 복사하고 latest.json 도 그 이름을 가리키게 한다.
+      # PowerShell 5.1 은 한글·BOM 문제가 있어 Node 로 만든다.
+      - name: 파일 이름 정리 · latest.json 만들기
+        run: node scripts/make-release.mjs $(echo "${{ github.ref_name }}" | sed 's/^v//') ${{ github.repository }}
+        shell: bash
+
+      # 올리기 전에 서명이 앱에 든 공개 키와 짝인지 실제로 검증한다
+      - name: 서명·파일명·버전 검증
+        run: npm run check:release
+
+      - name: 릴리스 올리기
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $ver = $tag.TrimStart('v')
+          $notes = @"
+          ## 설치 방법
+
+          아래 ``careercert_${ver}_x64-setup.exe`` 를 내려받아 실행하세요. 관리자 권한이 필요 없습니다.
+
+          > Windows 가 "PC를 보호했습니다" 창을 띄우면 **추가 정보 → 실행** 을 누르세요.
+          > 코드 서명 인증서가 없는 프로그램은 모두 이렇게 나옵니다.
+
+          이미 쓰고 계신 분은 프로그램을 켜면 사이드바 아래에 새 버전 알림이 뜹니다.
+
+          ## 자료는 그대로 남습니다
+
+          자료는 프로그램과 따로 ``%APPDATA%\kr.school.careercert`` 에 있습니다.
+          업데이트해도, 프로그램을 지웠다 다시 깔아도 그대로입니다. 자료 구조가 바뀌는 판은 첫 실행 때
+          바뀌기 직전의 자료를 자동으로 백업합니다(``backups\before_migration_*``).
+
+          ## 첨부 파일
+
+          | 파일 | 무엇인가요 |
+          |---|---|
+          | ``careercert_….exe`` | 설치 파일. 이것만 받으면 됩니다 |
+          | ``careercert_….exe.sig`` | 서명. 프로그램이 업데이트할 때 확인합니다 |
+          | ``latest.json`` | 업데이트 정보. 프로그램이 읽습니다 |
+          | ``SHA256SUMS.txt`` | 내려받은 파일이 온전한지 확인용 |
+          "@
+
+          gh release delete $tag --yes 2>$null
+          gh release create $tag (Get-ChildItem release | ForEach-Object { $_.FullName }) `
+            --title "방과후 강사 경력증명서 $tag" --notes $notes

@@ -128,14 +128,14 @@ pub fn check(path: &Path) -> Check {
     }
     let conn = match Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY) {
         Ok(c) => c,
-        Err(e) => return Check::bad(format!("SQLite 파일로 열지 못했습니다. ({e})")),
+        Err(_) => return Check::bad("SQLite 자료 파일로 열지 못했습니다."),
     };
 
     // 1) 파일이 성한가
     match conn.query_row("PRAGMA integrity_check", [], |r| r.get::<_, String>(0)) {
         Ok(v) if v == "ok" => {}
-        Ok(v) => return Check::bad(format!("자료가 손상되었습니다. ({v})")),
-        Err(e) => return Check::bad(format!("자료를 읽지 못했습니다. ({e})")),
+        Ok(_) => return Check::bad("자료가 손상되었습니다(무결성 검사 실패)."),
+        Err(_) => return Check::bad("자료를 읽지 못했습니다."),
     }
 
     // 2) 이 프로그램의 자료인가 — 다른 앱의 SQLite 파일을 골라도 거절한다
@@ -149,7 +149,7 @@ pub fn check(path: &Path) -> Check {
     // 3) 이 버전이 읽을 수 있는 구조인가
     let version = match migrate::current_version(&conn) {
         Ok(v) => v,
-        Err(e) => return Check::bad(format!("자료 구조 버전을 읽지 못했습니다. ({e})")),
+        Err(_) => return Check::bad("자료 구조 버전을 읽지 못했습니다."),
     };
     if version > migrate::latest_version() {
         return Check {

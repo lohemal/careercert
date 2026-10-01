@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use serde::Serialize;
-use tauri::State;
+use tauri::{Emitter, State};
 use tauri_plugin_dialog::DialogExt;
 
 use super::now;
@@ -21,7 +21,7 @@ use crate::error::{AppError, AppResult};
 use crate::repo::audit;
 use crate::service::import::{self, Decisions, Extract};
 use crate::service::portable::{self, Counts, Header, Prepared};
-use crate::service::{recovery, restore};
+use crate::service::{recovery, reminder, restore};
 use crate::AppState;
 
 async fn blocking<T: Send + 'static>(f: impl FnOnce() -> AppResult<T> + Send + 'static) -> AppResult<T> {
@@ -47,6 +47,13 @@ pub async fn recovery_set(state: State<'_, AppState>, password: Password, confir
 pub async fn recovery_change(state: State<'_, AppState>, old: Password, password: Password, confirm: Password) -> AppResult<()> {
     let db = state.db.clone();
     blocking(move || db.write(|c| recovery::change(c, &old, &password, &confirm, &now()))).await
+}
+
+/// 분실 재설정 — 이 PC 의 DPAPI 로 키를 열 수 있을 때만. 경고 확인(acknowledged) 필수
+#[tauri::command]
+pub async fn recovery_reset(state: State<'_, AppState>, password: Password, confirm: Password, acknowledged: bool) -> AppResult<()> {
+    let db = state.db.clone();
+    blocking(move || db.write(|c| recovery::reset(c, &password, &confirm, acknowledged, &now()))).await
 }
 
 // ---------------------------------------------------------------
@@ -109,11 +116,31 @@ pub async fn backup_export(app: tauri::AppHandle, state: State<'_, AppState>, pa
                 Action::BackupExport,
                 None,
                 &format!("이동용 백업 만듦 · 강사 {} · 경력 {} · 발급 {}", k.instructors, k.careers, k.certificates_issued + k.certificates_voided),
-            )
+            )?;
+            // 확인까지 성공한 뒤에만 '마지막 이동용 백업' 으로 남긴다 (시각만 — 위치·파일 이름은 남기지 않는다)
+            reminder::record_export(c, &at)
         })
     })
     .await?;
     Ok(ExportResult { saved: true, file_name })
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReminderView {
+    /// NO_DATA · NEVER · CHANGED · CURRENT
+    pub state: &'static str,
+    pub last_at_label: Option<String>,
+    pub stale: bool,
+    pub messages: Vec<String>,
+}
+
+/// 이동용 백업 권장 상태 (대시보드·설정의 조용한 안내)
+#[tauri::command]
+pub fn backup_reminder(state: State<'_, AppState>) -> AppResult<ReminderView> {
+    let today = today()?;
+    let r = state.db.read(|c| reminder::reminder(c, today))?;
+    Ok(ReminderView { state: r.state.code(), last_at_label: r.last_at.as_deref().map(label), stale: r.stale, messages: r.messages })
 }
 
 // ---------------------------------------------------------------
@@ -195,14 +222,20 @@ pub struct RestorePreview {
 /// ③ 비밀번호 → ④ 인증·복호화 → ⑤ 메모리 DB → ⑥⑦⑧⑨ app_id·무결성·구조 버전·마이그레이션
 /// → 데이터 키 복구·이 PC DPAPI 재포장 → 모든 발급본 검증 → ⑩ 미리보기. 지금 자료는 건드리지 않는다.
 #[tauri::command]
-pub async fn restore_unlock(state: State<'_, AppState>, password: Password) -> AppResult<RestorePreview> {
+pub async fn restore_unlock(app: tauri::AppHandle, state: State<'_, AppState>, password: Password) -> AppResult<RestorePreview> {
     let (bytes, file_name) = {
         let mut g = state.restore.lock().unwrap_or_else(|e| e.into_inner());
         let s = g.as_mut().ok_or_else(|| AppError::invalid("먼저 백업 파일을 골라 주세요."))?;
         s.prepared = None;
         (s.bytes.clone(), s.file_name.clone())
     };
-    let prepared = blocking(move || portable::prepare(&bytes, &password)).await?;
+    // 발급본 검증 진행을 화면에 알린다 (건수만 — 내용 없음)
+    let prepared = blocking(move || {
+        portable::prepare_with(&bytes, &password, &mut |done, total| {
+            let _ = app.emit("restore-progress", serde_json::json!({ "done": done, "total": total }));
+        })
+    })
+    .await?;
     let current = state.db.read(portable::counts)?;
     let view = RestorePreview {
         header: header_view(&file_name, &prepared.header),

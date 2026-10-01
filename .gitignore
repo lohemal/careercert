@@ -59,3 +59,9 @@ private/
 .idea/
 .DS_Store
 Thumbs.db
+
+# ---- Phase 9: 이동용 백업 · 릴리스 산출물 ----
+*.careercert-backup
+release/
+*.exe
+*.exe.sig

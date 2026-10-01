@@ -55,3 +55,10 @@ pub fn app_info(app: tauri::AppHandle, state: State<'_, AppState>) -> AppResult<
         autofill_off: *state.autofill_off.lock().unwrap_or_else(|e| e.into_inner()),
     })
 }
+
+/// 업데이트 설치 직전 — 자료 연결을 닫는다(WAL 을 비우고 파일을 놓음). 이 뒤의 자료 요청은 거절된다.
+/// 설치 프로그램이 곧 앱을 끝내고 새 버전을 켠다. 새 버전 첫 실행에서 구조가 바뀌면 마이그레이션 직전 백업이 먼저 뜬다.
+#[tauri::command]
+pub fn app_prepare_update(state: State<'_, AppState>) -> AppResult<()> {
+    state.db.release()
+}

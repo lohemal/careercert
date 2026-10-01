@@ -91,3 +91,15 @@
   font-weight: 600;
   cursor: pointer;
 }
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: 4px;
+  font-size: var(--fs-sm);
+}
+
+.progress progress {
+  width: 200px;
+}

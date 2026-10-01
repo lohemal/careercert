@@ -219,7 +219,9 @@ fn verify_restored(db_path: &Path, marker: &Marker, now: &str) -> AppResult<()> 
                 "이동용 백업에서 복원 · 강사 {} · 경력 {} · 발급 {} · 취소 {} · 발급본 검증 {}건",
                 k.instructors, k.careers, k.certificates_issued, k.certificates_voided, n
             ),
-        )
+        )?;
+        // 복원한 자료 = 그 이동용 백업의 내용이다 — 백업 권장 알림은 그 백업을 만든 시각을 기준으로 한다
+        crate::service::reminder::record_export(c, &marker.backup_created_at)
     })?;
     Ok(())
 }

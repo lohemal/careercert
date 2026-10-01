@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
+import { listen } from '@tauri-apps/api/event'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArchiveRestore, FileDown, FolderOpen, RotateCw } from 'lucide-react'
 
 import { Badge, Button, ErrorNotice, Field, Input, Modal, Notice } from '@/components/ui'
@@ -12,8 +13,11 @@ import s from './data.module.css'
  * 자동 백업(앱 자료 폴더의 backups)과 다르다 — 그것은 이 PC 안에서 되돌리기용이다.
  */
 export function PortableSection() {
+  const qc = useQueryClient()
   const recovery = useQuery({ queryKey: ['recovery'], queryFn: historyApi.recovery, staleTime: 0 })
+  const reminder = useQuery({ queryKey: ['backup-reminder'], queryFn: backupApi.reminder, staleTime: 0 })
   const ready = !!recovery.data?.ready
+  const rm = reminder.data
   const [exporting, setExporting] = useState(false)
   const [restoring, setRestoring] = useState(false)
   const [done, setDone] = useState<string | null>(null)
@@ -25,6 +29,18 @@ export function PortableSection() {
         다른 PC 로 옮기거나 USB 등 밖에 보관할 백업입니다. 파일 <b>전체</b>를 복구 비밀번호로 암호화하므로 파일을 열어도 강사 이름·연락처·경력이
         보이지 않습니다. 앱 안의 자동 백업은 이 PC 안에서 되돌리기용이라 따로 하루 한 번 만들어집니다.
       </p>
+      {rm && rm.state !== 'NO_DATA' && (
+        <p className={s.help}>
+          마지막 이동용 백업: <b>{rm.lastAtLabel ?? '없음'}</b>
+        </p>
+      )}
+      {rm && rm.messages.length > 0 && (
+        <Notice tone="warn">
+          {rm.messages.map((m) => (
+            <div key={m}>{m}</div>
+          ))}
+        </Notice>
+      )}
       {!ready && <Notice tone="info">이동용 백업을 만들려면 먼저 복구 비밀번호를 설정해야 합니다.</Notice>}
       {done && <Notice tone="success">{done}</Notice>}
       <div className={s.actions}>
@@ -41,6 +57,7 @@ export function PortableSection() {
           onDone={(name) => {
             setExporting(false)
             setDone(`이동용 백업을 저장했습니다: ${name}`)
+            void qc.invalidateQueries({ queryKey: ['backup-reminder'] })
           }}
         />
       )}
@@ -117,6 +134,14 @@ function RestoreDialog({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [restarting, setRestarting] = useState(false)
   const [error, setError] = useState<unknown>(null)
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+
+  // 복원 준비 중 발급본 검증 진행 (건수만 온다)
+  useEffect(() => {
+    let off: (() => void) | undefined
+    void listen<{ done: number; total: number }>('restore-progress', (e) => setProgress(e.payload)).then((f) => (off = f))
+    return () => off?.()
+  }, [])
 
   const close = () => {
     void backupApi.cancel()
@@ -141,6 +166,7 @@ function RestoreDialog({ onClose }: { onClose: () => void }) {
 
   const unlock = async () => {
     setBusy('확인 중… 백업을 풀고 모든 발급 기록을 열어 봅니다')
+    setProgress(null)
     setError(null)
     try {
       setPreview(await backupApi.unlock(pw))
@@ -240,7 +266,16 @@ function RestoreDialog({ onClose }: { onClose: () => void }) {
               </label>
             </>
           )}
-          {busy && <Notice tone="info">{busy}</Notice>}
+          {busy && (
+            <Notice tone="info">
+              {busy}
+              {progress && progress.total > 0 && busy.startsWith('확인 중') && (
+                <div className={s.progress}>
+                  <progress max={progress.total} value={progress.done} /> 발급 기록 {progress.done.toLocaleString()} / {progress.total.toLocaleString()}건 확인
+                </div>
+              )}
+            </Notice>
+          )}
           <ErrorNotice error={error} />
         </>
       )}

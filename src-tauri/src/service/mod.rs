@@ -18,6 +18,7 @@ pub mod import;
 pub mod issuance;
 pub mod portable;
 pub mod recovery;
+pub mod reminder;
 pub mod restore;
 pub mod instructor;
 
@@ -40,3 +41,7 @@ pub(crate) mod archive_error {
         AppError::new("NOT_ARCHIVED", format!("보관되지 않은 {what}입니다."))
     }
 }
+
+#[cfg(test)]
+#[path = "perf_tests.rs"]
+mod perf_tests;

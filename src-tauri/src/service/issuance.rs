@@ -239,14 +239,28 @@ fn day(s: &str) -> AppResult<NaiveDate> {
 /// 스냅샷을 읽고, 주민번호·주소를 풀고, 문서를 다시 만들고, **지문을 검증**한다.
 /// 지금 강사·경력·학교 설정은 읽지 않는다.
 pub fn reconstruct(conn: &Connection, id: i64) -> AppResult<Reconstructed> {
+    reconstruct_with(conn, id, &mut KeyCache::default())
+}
+
+/// 여러 발급본을 이어서 검증할 때 쓰는 키 보관 — 같은 키 번호를 매번 DPAPI 로 다시 풀지 않는다.
+/// (검증 단계는 그대로다: 발급본마다 복호화·문서 재구성·지문 비교를 모두 한다.)
+#[derive(Default)]
+pub struct KeyCache(std::collections::HashMap<String, crypto::DataKey>);
+
+/// `reconstruct` 와 같다. 키만 `cache` 에서 꺼내 쓴다.
+pub fn reconstruct_with(conn: &Connection, id: i64, cache: &mut KeyCache) -> AppResult<Reconstructed> {
     let row = repo::get(conn, id)?;
     let items = repo::items(conn, id)?;
     if items.len() as i64 != row.item_count {
         return Err(bad_snapshot("item count"));
     }
-    let key = keys::get(conn, &row.key_id)?;
+    if !cache.0.contains_key(&row.key_id) {
+        let k = keys::get(conn, &row.key_id)?;
+        cache.0.insert(row.key_id.clone(), k);
+    }
+    let key = &cache.0[&row.key_id];
     let plain = crypto::open(
-        &key,
+        key,
         &aad(&row.uuid, &row.key_id),
         &Sealed { nonce: row.sensitive_nonce.clone(), ciphertext: row.sensitive_cipher.clone() },
     )?;
@@ -288,7 +302,7 @@ pub fn reconstruct(conn: &Connection, id: i64) -> AppResult<Reconstructed> {
             phone: row.phone.clone(),
         },
     };
-    if crypto::doc_hash(&key, cert::canonical(&doc, true).as_bytes()) != row.doc_hash {
+    if crypto::doc_hash(key, cert::canonical(&doc, true).as_bytes()) != row.doc_hash {
         return Err(bad_snapshot("doc_hash"));
     }
     Ok(Reconstructed { row, doc })

@@ -1,12 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { History, KeyRound, Settings } from 'lucide-react'
+import { FileDown, History, KeyRound, Settings } from 'lucide-react'
 
 import { Button, Card, ErrorNotice, Notice, Page } from '@/components/ui'
 import { RECOVERY_NOT_SET_WARNING } from '@/features/data/RecoverySection'
 import { whoLabel } from '@/features/instructors/label'
 import type { AppInfo } from '@/ipc/app'
 import { dashboardApi } from '@/ipc/dashboard'
+import { backupApi } from '@/ipc/data'
 import { historyApi, type HistoryRow } from '@/ipc/issuance'
 import type { SettingsView } from '@/ipc/settings'
 import s from './DashboardPage.module.css'
@@ -32,6 +33,9 @@ export function DashboardPage({ info, settings, settingsError }: Props) {
   // 발급 기록이 있는데 복구 비밀번호가 없으면 계속 알린다 (설정하면 사라진다)
   const recovery = useQuery({ queryKey: ['recovery'], queryFn: historyApi.recovery })
   const needsRecovery = !!recovery.data && !recovery.data.ready && recovery.data.certificates > 0
+  // 이동용 백업 권장 — 팝업 없이 이 자리에만
+  const reminder = useQuery({ queryKey: ['backup-reminder'], queryFn: backupApi.reminder, staleTime: 0 })
+  const backupNotes = reminder.data?.messages ?? []
   const r = recent.data
   const openCert = (id: number) => navigate(`/history?id=${id}`)
 
@@ -91,6 +95,19 @@ export function DashboardPage({ info, settings, settingsError }: Props) {
             <span>{RECOVERY_NOT_SET_WARNING}</span>
             <Button size="sm" icon={KeyRound} onClick={() => navigate('/settings')}>
               설정하기
+            </Button>
+          </div>
+        </Notice>
+      )}
+      {backupNotes.length > 0 && (
+        <Notice tone="info">
+          <div className={s.setup}>
+            <span>
+              {backupNotes.join(' ')}
+              {reminder.data?.lastAtLabel && <span className={s.missing}> (마지막 이동용 백업 {reminder.data.lastAtLabel})</span>}
+            </span>
+            <Button size="sm" icon={FileDown} onClick={() => navigate('/settings')}>
+              이동용 백업
             </Button>
           </div>
         </Notice>

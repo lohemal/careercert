@@ -271,12 +271,23 @@ pub fn counts(conn: &Connection) -> AppResult<Counts> {
 
 /// 모든 발급본을 다시 만들어 본다 — 복호화·지문 검증. 하나라도 안 되면 실패.
 pub fn verify_certificates(conn: &Connection) -> AppResult<usize> {
+    verify_certificates_with(conn, &mut |_, _| {})
+}
+
+/// 진행을 알리며 검증한다 (`progress(done, total)` — 화면이 멈춘 것처럼 보이지 않게)
+pub fn verify_certificates_with(conn: &Connection, progress: &mut dyn FnMut(usize, usize)) -> AppResult<usize> {
     let ids: Vec<i64> = conn
         .prepare("SELECT id FROM certificates ORDER BY id")?
         .query_map([], |r| r.get(0))?
         .collect::<rusqlite::Result<_>>()?;
-    for id in &ids {
-        issuance::reconstruct(conn, *id).map_err(|e| {
+    let total = ids.len();
+    let mut cache = issuance::KeyCache::default();
+    progress(0, total);
+    for (n, id) in ids.iter().enumerate() {
+        if n % 200 == 0 {
+            progress(n, total);
+        }
+        issuance::reconstruct_with(conn, *id, &mut cache).map_err(|e| {
             AppError::new(
                 "RESTORE_VERIFY_FAILED",
                 "백업 안의 발급 기록을 확인하지 못했습니다(복호화 또는 문서 지문 검증 실패). 복원하지 않았습니다.",
@@ -284,7 +295,8 @@ pub fn verify_certificates(conn: &Connection) -> AppResult<usize> {
             .detail(format!("certificate {id}: {}", e.code))
         })?;
     }
-    Ok(ids.len())
+    progress(total, total);
+    Ok(total)
 }
 
 /// 복원할 준비가 끝난 자료 (메모리 DB — 마이그레이션·이 PC DPAPI 재포장·발급본 검증까지 마침)
@@ -308,7 +320,13 @@ impl std::fmt::Debug for Prepared {
 
 /// 패키지 → 메모리 DB → 검사 → 마이그레이션 → 데이터 키 복구(비밀번호) → 이 PC DPAPI 로 재포장 → 모든 발급본 검증.
 /// 지금 자료는 건드리지 않는다.
+#[cfg(test)]
 pub fn prepare(bytes: &[u8], password: &Password) -> AppResult<Prepared> {
+    prepare_with(bytes, password, &mut |_, _| {})
+}
+
+/// `prepare` 와 같다. 발급본 검증 진행을 알린다.
+pub fn prepare_with(bytes: &[u8], password: &Password, progress: &mut dyn FnMut(usize, usize)) -> AppResult<Prepared> {
     let (header, mut mem) = open(bytes, password)?;
     let before = counts(&mem)?;
     let migrated_from = migrate::current_version(&mem)?;
@@ -323,7 +341,7 @@ pub fn prepare(bytes: &[u8], password: &Password) -> AppResult<Prepared> {
     for key in &opened {
         keys::rewrap_dpapi(&mem, key)?; // 이 PC·이 Windows 사용자로 다시 감싼다(암호문은 그대로)
     }
-    let verified_certificates = verify_certificates(&mem)?;
+    let verified_certificates = verify_certificates_with(&mem, progress)?;
     if counts(&mem)? != before {
         return Err(AppError::internal("마이그레이션 뒤 건수가 달라졌습니다."));
     }

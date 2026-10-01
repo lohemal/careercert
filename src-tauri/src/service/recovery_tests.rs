@@ -136,3 +136,48 @@ fn 변경_기록에는_비밀번호가_없다() {
         assert!(!s.contains(PW) && !s.contains(PW2), "{s}");
     }
 }
+
+// ---------------- 분실 재설정 ----------------
+
+#[test]
+fn 분실_재설정은_기존_비밀번호_없이_이_pc_의_키로_새_비밀번호를_만든다() {
+    let w = world();
+    let id = issue_now(&w, "제2026-152호").unwrap();
+    set_pw(&w.db, PW).unwrap();
+    w.db.write(|c| reset(c, &pw(PW2), &pw(PW2), true, NOW)).unwrap();
+    assert_eq!(w.db.read(|c| open_all(c, &pw(PW))).unwrap_err().code, "RECOVERY_PASSWORD_WRONG", "이전 비밀번호는 안 된다");
+    assert!(w.db.read(|c| open_all(c, &pw(PW2))).is_ok(), "새 비밀번호로 실제로 풀린다");
+    assert!(w.db.read(|c| reconstruct(c, id)).is_ok(), "데이터 키·암호문 그대로");
+    let log = w.db.read(crate::repo::audit::all).unwrap();
+    assert!(log.iter().any(|e| e.action == "RECOVERY_RESET" && !e.summary.contains(PW2)));
+}
+
+#[test]
+fn 분실_재설정은_경고를_확인해야_하고_규칙도_같다() {
+    let w = world();
+    issue_now(&w, "제2026-152호").unwrap();
+    set_pw(&w.db, PW).unwrap();
+    assert_eq!(w.db.write(|c| reset(c, &pw(PW2), &pw(PW2), false, NOW)).unwrap_err().code, "RECOVERY_RESET_UNCONFIRMED");
+    assert!(w.db.write(|c| reset(c, &pw("짧은비번"), &pw("짧은비번"), true, NOW)).is_err());
+    assert_eq!(w.db.write(|c| reset(c, &pw(PW2), &pw("다른 확인 비밀번호"), true, NOW)).unwrap_err().code, "RECOVERY_CONFIRM_MISMATCH");
+    assert!(w.db.read(|c| open_all(c, &pw(PW))).is_ok(), "아무것도 바뀌지 않았다");
+}
+
+#[test]
+fn 이_pc_의_dpapi_로_키를_열_수_없으면_분실_재설정을_허용하지_않는다() {
+    let w = world();
+    issue_now(&w, "제2026-152호").unwrap();
+    set_pw(&w.db, PW).unwrap();
+    // 다른 PC·계정에서 옮겨 온 자료 흉내
+    w.db.write(|c| Ok(c.execute("UPDATE key_store SET dpapi_blob = X'0102030405'", [])?)).unwrap();
+    let before = w.db.read(|c| keys::all(c)).unwrap()[0].recovery_blob.clone();
+    assert_eq!(w.db.write(|c| reset(c, &pw(PW2), &pw(PW2), true, NOW)).unwrap_err().code, "RECOVERY_RESET_UNAVAILABLE");
+    assert_eq!(w.db.read(|c| keys::all(c)).unwrap()[0].recovery_blob, before);
+}
+
+#[test]
+fn 설정_전에는_분실_재설정이_아니라_설정으로() {
+    let w = world();
+    issue_now(&w, "제2026-152호").unwrap();
+    assert_eq!(w.db.write(|c| reset(c, &pw(PW2), &pw(PW2), true, NOW)).unwrap_err().code, "RECOVERY_NOT_SET");
+}

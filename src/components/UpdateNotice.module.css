@@ -1,0 +1,41 @@
+.box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 var(--sp-2) var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--primary-border);
+  background: var(--primary-soft);
+  border-radius: var(--radius);
+  font-size: var(--fs-sm);
+}
+
+.actions {
+  display: flex;
+  gap: 6px;
+}
+
+.primary,
+.ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.primary {
+  border: none;
+  background: var(--primary);
+  color: #fff;
+}
+
+.ghost {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}

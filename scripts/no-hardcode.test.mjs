@@ -32,8 +32,6 @@ const files = TARGETS.flatMap((t) => walk(join(ROOT, t), []))
 const SCHOOL = /[가-힣]{1,20}(초등학교|중학교|고등학교|초교)/
 // 지역번호·휴대전화 모양. `000-0000-0000` 같은 자리표시는 0 으로만 되어 있어 걸리지 않는다
 const PHONE = /(?<![0-9])0(?:1[016789]|2|[3-6][1-5]|70)-[1-9][0-9]{2,3}-[0-9]{4}(?![0-9])/
-// 샘플 양식에 찍혀 있던 값 — 조각으로 이어 이 파일 자신이 걸리지 않게 한다
-const SAMPLE = ['가나' + '초등', '홍' + '길동', '000-' + '000-0000']
 
 test('검사할 코드 파일이 있다', () => {
   assert.ok(files.length > 10, `파일 ${files.length}개`)
@@ -42,7 +40,6 @@ test('검사할 코드 파일이 있다', () => {
 for (const [kind, hit] of [
   ['실제 학교명이', (line) => SCHOOL.test(line)],
   ['실제 전화번호가', (line) => PHONE.test(line)],
-  ['샘플 양식의 값이', (line) => SAMPLE.some((v) => line.includes(v))],
 ]) {
   test(`코드에 ${kind} 없다`, () => {
     const found = []

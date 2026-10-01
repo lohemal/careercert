@@ -55,6 +55,7 @@ impl AppState {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             // %APPDATA%\kr.school.careercert\careercert.db
             // 연습용은 %APPDATA%\kr.school.careercert.sandbox\ — 실제 자료와 섞이지 않는다.
@@ -92,14 +93,11 @@ pub fn run() {
             // 자료가 성한가
             let sound = match db.integrity() {
                 Ok(v) if v == "ok" => true,
-                Ok(v) => {
+                Ok(_) => {
                     notes.push(StartupNote::new(
                         "INTEGRITY",
                         "error",
-                        format!(
-                            "자료 파일에 문제가 있습니다({v}). 새로 저장하기 전에 \
-                             백업 폴더의 최근 백업을 확인해 주세요."
-                        ),
+                        "자료 파일에 문제가 있습니다(무결성 검사 실패). 새로 저장하기 전에 백업 폴더의 최근 백업을 확인해 주세요.",
                     ));
                     false
                 }
@@ -136,6 +134,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::app::app_info,
+            commands::app::app_prepare_update,
             commands::settings::settings_get,
             commands::settings::settings_save,
             commands::dashboard::dashboard_overview,
@@ -172,7 +171,9 @@ pub fn run() {
             // 데이터 관리
             commands::data::recovery_set,
             commands::data::recovery_change,
+            commands::data::recovery_reset,
             commands::data::backup_export,
+            commands::data::backup_reminder,
             commands::data::restore_pick,
             commands::data::restore_unlock,
             commands::data::restore_confirm,

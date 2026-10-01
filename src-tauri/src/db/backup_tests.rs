@@ -8,7 +8,7 @@ fn at(y: i32, m: u32, d: u32, h: u32, min: u32) -> DateTime<Local> {
     Local.with_ymd_and_hms(y, m, d, h, min, 0).unwrap()
 }
 
-fn open_db(tag: &str) -> (std::path::PathBuf, Db) {
+fn open_db(tag: &str) -> (crate::db::testutil::TempDir, Db) {
     let dir = tmp_dir(tag);
     let db = Db::open(&dir.join(DB_FILE)).unwrap();
     (dir, db)

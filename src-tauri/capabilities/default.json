@@ -2,6 +2,11 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "메인 창 기본 권한",
-  "windows": ["main", "printer"],
-  "permissions": ["core:default"]
+  "windows": [
+    "main",
+    "printer"
+  ],
+  "permissions": [
+    "core:default"
+  ]
 }
