@@ -4,4 +4,5 @@ pub mod audit;
 pub mod career;
 pub mod certificate;
 pub mod instructor;
+pub mod logo;
 pub mod settings;

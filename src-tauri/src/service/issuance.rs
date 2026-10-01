@@ -147,8 +147,26 @@ pub fn issue(conn: &Connection, req: IssueRequest, now: &str, actor: &str) -> Ap
             return Err(AppError::not_found("참고한 원래 발급 기록을 찾을 수 없습니다."));
         }
     }
+    store(conn, &doc, &key_no, req.prepare.instructor_id, req.copied_from, now, actor)
+}
+
+/// 검사를 마친 문서를 발급 기록으로 저장한다 — 봉인 · 지문 · 스냅샷 · 경력 사본 · 로고 보관 · 변경 기록.
+/// `issue` 만 부른다(시험은 옛 1판 발급본을 흉내 낼 때 직접 부른다).
+pub(crate) fn store(
+    conn: &Connection,
+    doc: &CertificateDoc,
+    key_no: &str,
+    instructor_id: i64,
+    copied_from: Option<i64>,
+    now: &str,
+    actor: &str,
+) -> AppResult<i64> {
 
     // 5) 봉인 — 키가 없으면 이때 처음 만든다
+    // 5-1) 발급 당시 로고 보관 (2판) — 같은 로고면 이미 있는 보관본을 쓴다
+    if let Some(l) = &doc.logo {
+        crate::repo::logo::keep_for_certificate(conn, l, now)?;
+    }
     let key = keys::current_or_create(conn, now)?;
     let uuid = uuid::Uuid::new_v4().to_string();
     let plain = Zeroizing::new(serde_json::to_vec(&Sensitive {
@@ -157,7 +175,7 @@ pub fn issue(conn: &Connection, req: IssueRequest, now: &str, actor: &str) -> Ap
     })?);
     let sealed = crypto::seal(&key, &aad(&uuid, &key.key_id), &plain)?;
     drop(plain);
-    let doc_hash = crypto::doc_hash(&key, cert::canonical(&doc, true).as_bytes());
+    let doc_hash = crypto::doc_hash(&key, cert::canonical(doc, true).as_bytes());
 
     // 6) 스냅샷
     let issued_on = date::to_iso(doc.issued_on);
@@ -167,7 +185,7 @@ pub fn issue(conn: &Connection, req: IssueRequest, now: &str, actor: &str) -> Ap
         &repo::NewCertificate {
             uuid: &uuid,
             issue_no: &doc.issue_no,
-            issue_no_key: &key_no,
+            issue_no_key: key_no,
             issued_on: &issued_on,
             template_version: doc.template_version,
             title: &doc.title,
@@ -184,10 +202,11 @@ pub fn issue(conn: &Connection, req: IssueRequest, now: &str, actor: &str) -> Ap
             phone: &doc.school.phone,
             item_count: doc.items.len(),
             doc_hash: &doc_hash,
-            source_instructor_id: Some(req.prepare.instructor_id),
-            copied_from_certificate_id: req.copied_from,
+            source_instructor_id: Some(instructor_id),
+            copied_from_certificate_id: copied_from,
             created_at: now,
             created_by: actor,
+            logo_sha256: doc.logo.as_ref().map(|l| l.sha256.as_str()),
         },
     )?;
     for (i, it) in doc.items.iter().enumerate() {
@@ -272,8 +291,16 @@ pub fn reconstruct_with(conn: &Connection, id: i64, cache: &mut KeyCache) -> App
         "MASK_BACK" => RrnDisplay::MaskBack,
         _ => return Err(bad_snapshot("rrn_display")),
     };
+    // 로고 — 2판이면 발급 기록의 보관본(지문 확인), 1판은 언제나 없음(로고가 붙어 있으면 변조)
+    let logo = match (row.template_version, row.logo_sha256.as_deref()) {
+        (1, None) => None,
+        (1, Some(_)) => return Err(bad_snapshot("v1 logo")),
+        (_, None) => None,
+        (_, Some(sha)) => Some(crate::repo::logo::for_certificate(conn, sha)?),
+    };
     let doc = CertificateDoc {
         template_version: row.template_version,
+        logo,
         title: row.title.clone(),
         issue_no: row.issue_no.clone(),
         issued_on: day(&row.issued_on)?,

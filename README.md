@@ -28,6 +28,8 @@ npm run seed               # 연습용 자료에 가상 강사·경력 넣기 (-
 | Rust 시험 | `npm run test:rust` (시험 폴더는 끝나면 지운다 · 남기려면 `CAREERCERT_KEEP_TEST_DIRS=1`) |
 | 규모 시험 (강사 500 · 발급 5,000) | `cargo test --release --lib perf -- --ignored --nocapture` (src-tauri 에서) |
 | 개인정보 검사 규칙 · 하드코딩 검사 | `npm run test:scripts` |
+| 화면 규칙 (작성 값 · 증명서 2판 쪽 나누기) | `npm run test:ui` |
+| 양식 눈 시험용 HTML (1판·2판, 가상 자료) | `CAREERCERT_DUMP_HTML=<폴더> cargo test --lib 눈시험용` (src-tauri 에서) |
 | 전부 | `npm test` |
 | 저장소 전체 개인정보 검사 (릴리스 전 필수) | `npm run check:privacy -- --all` |
 | 공개 저장소 검사 (추적 파일 / 이력 전체) | `npm run check:public` / `npm run check:public -- --history` |

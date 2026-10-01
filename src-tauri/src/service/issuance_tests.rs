@@ -269,7 +269,7 @@ fn db_도_발급번호_중복을_막는다() {
             "INSERT INTO certificates SELECT NULL, 'u2' || substr(uuid, 3), issue_no, issue_no_key || 'x', issued_on, template_version,
                     title, purpose, holder_name, sensitive_nonce, sensitive_cipher, key_id, masked_rrn, rrn_display, issuer_title,
                     department, manager_name, phone, item_count, doc_hash, 'ISSUED', NULL, NULL, source_instructor_id, NULL,
-                    created_at, created_by FROM certificates WHERE id = ?1",
+                    created_at, created_by, logo_sha256 FROM certificates WHERE id = ?1",
             [id],
         ))
     });
@@ -330,7 +330,7 @@ fn 처음부터_취소_상태로_넣을_수_없다() {
         &format!(
             "INSERT INTO certificates SELECT NULL, 'v' || substr(uuid, 2), 'n2', 'n2', issued_on, template_version, title, purpose,
                     holder_name, sensitive_nonce, sensitive_cipher, key_id, masked_rrn, rrn_display, issuer_title, department,
-                    manager_name, phone, item_count, doc_hash, 'VOIDED', 'x', 'x', NULL, NULL, created_at, created_by
+                    manager_name, phone, item_count, doc_hash, 'VOIDED', 'x', 'x', NULL, NULL, created_at, created_by, logo_sha256
                FROM certificates WHERE id = {id}"
         ),
     );

@@ -23,6 +23,7 @@ pub enum Action {
     BackupExport,
     Restore,
     Import,
+    SchoolLogo,
 }
 
 impl Action {
@@ -46,6 +47,7 @@ impl Action {
             Action::BackupExport => "BACKUP_EXPORT",
             Action::Restore => "RESTORE",
             Action::Import => "IMPORT",
+            Action::SchoolLogo => "SCHOOL_LOGO",
         }
     }
 
@@ -65,6 +67,7 @@ impl Action {
             Action::RecoverySet | Action::RecoveryChange | Action::RecoveryReset => "recovery",
             Action::BackupExport | Action::Restore => "backup",
             Action::Import => "import",
+            Action::SchoolLogo => "school_settings",
         }
     }
 }

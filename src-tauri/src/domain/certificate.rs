@@ -29,7 +29,9 @@ use super::settings::{missing, SchoolSettings};
 use crate::error::{AppError, AppResult};
 
 /// 증명서 양식 판. 양식이 바뀌면 올리고, 옛 판은 지우지 않는다(Phase 5·6).
-pub const TEMPLATE_VERSION: u32 = 1;
+/// * 1판 — v0.1.0·v0.1.1 발급본. **동결**(render::v1, 정규 표현에 로고 줄 없음).
+/// * 2판 — v0.1.2 부터 새로 발급. `경력 사항` 가운데 정렬 · 학교 로고 워터마크(정규 표현에 `logo=` 줄).
+pub const TEMPLATE_VERSION: u32 = 2;
 
 pub const ISSUE_NO_MAX: usize = 50;
 pub const PURPOSE_MAX: usize = 50;
@@ -189,6 +191,8 @@ pub struct CertificateDoc {
     pub rrn_display: RrnDisplay,
     pub items: Vec<CertItem>,
     pub school: SchoolBlock,
+    /// 발급 당시 학교 로고 (2판부터, 없을 수 있다). 1판은 언제나 None.
+    pub logo: Option<super::logo::Logo>,
 }
 
 /// 막지는 않지만 담당자가 알아야 할 것.
@@ -356,6 +360,8 @@ pub fn build(
                 manager_name: school.manager_name.clone(),
                 phone: school.phone.clone(),
             },
+            // 로고는 service 가 학교 설정에서 붙인다(이 함수는 DB 를 모른다)
+            logo: None,
         },
         warnings,
     })
@@ -426,6 +432,10 @@ pub fn canonical(doc: &CertificateDoc, include_pii: bool) -> zeroize::Zeroizing<
     line("school.department", &doc.school.department);
     line("school.manager_name", &doc.school.manager_name);
     line("school.phone", &doc.school.phone);
+    // 2판부터: 로고 보관본의 지문(없으면 NONE). 1판에는 이 줄이 없다 — 옛 발급본의 doc_hash 가 그대로다.
+    if doc.template_version >= 2 {
+        line("logo", doc.logo.as_ref().map(|l| l.sha256.as_str()).unwrap_or("NONE"));
+    }
     line("items", &doc.items.len().to_string());
     for (i, it) in doc.items.iter().enumerate() {
         let n = i + 1;

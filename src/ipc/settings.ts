@@ -26,6 +26,22 @@ export interface SettingsView {
   issuerFilled: boolean
 }
 
+/** Rust `commands::settings::LogoView` — 미리보기는 보관본(색 그대로), 경로는 없다 */
+export interface SchoolLogo {
+  present: boolean
+  preview: string | null
+  width: number | null
+  height: number | null
+  updatedAt: string | null
+}
+
+export const logoApi = {
+  get: () => invoke<SchoolLogo>('school_logo_get'),
+  /** 파일을 고르면 바로 검사·보관한다. 취소하면 null */
+  pick: () => invoke<SchoolLogo | null>('school_logo_pick'),
+  remove: () => invoke<SchoolLogo>('school_logo_remove'),
+}
+
 export const settingsApi = {
   get: () => invoke<SettingsView>('settings_get'),
   save: (input: SettingsInput) => invoke<SettingsView>('settings_save', { input }),

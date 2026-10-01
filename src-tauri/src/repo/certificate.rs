@@ -32,6 +32,8 @@ pub struct NewCertificate<'a> {
     pub copied_from_certificate_id: Option<i64>,
     pub created_at: &'a str,
     pub created_by: &'a str,
+    /// 2판부터 — 발급 당시 로고 보관본의 지문
+    pub logo_sha256: Option<&'a str>,
 }
 
 pub fn insert(conn: &Connection, c: &NewCertificate<'_>) -> AppResult<i64> {
@@ -39,8 +41,8 @@ pub fn insert(conn: &Connection, c: &NewCertificate<'_>) -> AppResult<i64> {
         "INSERT INTO certificates (uuid, issue_no, issue_no_key, issued_on, template_version, title, purpose,
                                    holder_name, sensitive_nonce, sensitive_cipher, key_id, masked_rrn, rrn_display,
                                    issuer_title, department, manager_name, phone, item_count, doc_hash,
-                                   source_instructor_id, copied_from_certificate_id, created_at, created_by)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
+                                   source_instructor_id, copied_from_certificate_id, created_at, created_by, logo_sha256)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
         params![
             c.uuid,
             c.issue_no,
@@ -65,6 +67,7 @@ pub fn insert(conn: &Connection, c: &NewCertificate<'_>) -> AppResult<i64> {
             c.copied_from_certificate_id,
             c.created_at,
             c.created_by,
+            c.logo_sha256,
         ],
     )?;
     Ok(conn.last_insert_rowid())
@@ -134,6 +137,7 @@ pub struct Row {
     pub copied_from_certificate_id: Option<i64>,
     pub created_at: String,
     pub created_by: String,
+    pub logo_sha256: Option<String>,
 }
 
 impl std::fmt::Debug for Row {
@@ -149,7 +153,7 @@ impl std::fmt::Debug for Row {
 const COLS: &str = "id, uuid, issue_no, issued_on, template_version, title, purpose, holder_name,
                     sensitive_nonce, sensitive_cipher, key_id, masked_rrn, rrn_display, issuer_title,
                     department, manager_name, phone, item_count, doc_hash, status, voided_at, void_reason,
-                    source_instructor_id, copied_from_certificate_id, created_at, created_by";
+                    source_instructor_id, copied_from_certificate_id, created_at, created_by, logo_sha256";
 
 fn from_row(r: &SqlRow<'_>) -> rusqlite::Result<Row> {
     Ok(Row {
@@ -179,6 +183,7 @@ fn from_row(r: &SqlRow<'_>) -> rusqlite::Result<Row> {
         copied_from_certificate_id: r.get(23)?,
         created_at: r.get(24)?,
         created_by: r.get(25)?,
+        logo_sha256: r.get(26)?,
     })
 }
 
@@ -306,6 +311,9 @@ pub struct Meta {
     pub source_instructor_id: Option<i64>,
     pub copied_from_certificate_id: Option<i64>,
     pub created_at: String,
+    /// 발급 당시 로고가 있었는가 (2판부터)
+    pub has_logo: bool,
+    pub template_version: u32,
 }
 
 impl std::fmt::Debug for Meta {
@@ -320,7 +328,7 @@ impl std::fmt::Debug for Meta {
 
 const META_COLS: &str = "id, issue_no, issued_on, title, purpose, holder_name, masked_rrn, rrn_display, issuer_title,
                          department, manager_name, phone, item_count, status, voided_at, void_reason,
-                         source_instructor_id, copied_from_certificate_id, created_at";
+                         source_instructor_id, copied_from_certificate_id, created_at, logo_sha256 IS NOT NULL, template_version";
 
 fn meta_from_row(r: &SqlRow<'_>) -> rusqlite::Result<Meta> {
     Ok(Meta {
@@ -343,6 +351,8 @@ fn meta_from_row(r: &SqlRow<'_>) -> rusqlite::Result<Meta> {
         source_instructor_id: r.get(16)?,
         copied_from_certificate_id: r.get(17)?,
         created_at: r.get(18)?,
+        has_logo: r.get(19)?,
+        template_version: r.get(20)?,
     })
 }
 

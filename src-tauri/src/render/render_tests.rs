@@ -251,3 +251,55 @@ fn 모르는_양식_판은_그리지_않는다() {
 fn css_문자열은_따옴표와_역슬래시도_안전하다() {
     assert_eq!(css_string(r#"a"b\c"#), r#""a\22 b\5C c""#);
 }
+
+
+// ---------------- v1 동결 (v0.1.2) ----------------
+// v0.1.1 까지 발급한 증명서는 1판으로 다시 그린다. 1판 HTML·정규 표현이 **한 글자도** 바뀌지 않았는지
+// v0.1.1 코드에서 뜬 지문과 맞춰 본다. 이 값이 바뀌면 옛 발급본의 모양이나 doc_hash 가 바뀐 것이다.
+const GOLDEN_V1: [(usize, bool, &str, &str, &str, &str, &str); 3] = [
+    (1, false,
+     "908df639de019a898525f57b673be756fcfab70320718360800fa2dd031e1d8b", "70d5f14588af3c092136f9c139103e5055b744850210162072b6e86b172d3980",
+     "fc8384e868f7c1e849c5ad8e79ed7427202ab0dd9543a69c98a7c3ee563dc9c8", "e2813de13b65222fb8ce0fa2e4cefab962dfb56505752e50076844c3cd0fe623", "1"),
+    (7, true,
+     "11340660c805c76c7b7f90badb0bbe142091ba2de1bbb0ac9d8d1f221e13225f", "fcad7d97ac116b816bdccc63ab1551df17362d406fdd536561c713628a7d5d56",
+     "f23f911cd6e8bb423142808a96474ed252840be5828a271d519167691b92da43", "a733956a0b93a78535793d4cec6e115f778c0b7496dbf9a6ae56bd48870cff53", "7"),
+    (15, false,
+     "27f360da226dfe158b86c5414c25e059b6afe497b97afbbd89ee06acdc54e1e6", "15655e18b5d9b0e09f3ef9b99374db9ce281313ed36aae8e80631a003ba43759",
+     "612923a33591b63f547dc84fe8b4dce4a07750a4fc6b71e6e36fc96704628c60", "4b59837cfbb2b884fd8a023eabfa6a639571c68ff234eb79a4ee3b1693fc392d", "15"),
+];
+
+/// 1판 문서 (v0.1.1 이 만들던 것과 같게)
+fn v1_doc(n: usize, mask: bool) -> CertificateDoc {
+    let mut d = doc_with("김가람", n, mask, &school());
+    d.template_version = 1;
+    d.logo = None;
+    d
+}
+
+#[test]
+fn 일판_html_과_정규_표현이_v0_1_1_과_한_글자도_같다() {
+    for (n, mask, draft, issued_h, canon_pii, canon, label) in GOLDEN_V1 {
+        let d = v1_doc(n, mask);
+        let sha = |s: &str| crate::crypto::plain_sha256(s.as_bytes());
+        assert_eq!(sha(&html(&d, Mode::PreviewDraft)), draft, "v1 미리보기 {label}건");
+        assert_eq!(sha(&html(&d, issued())), issued_h, "v1 발급본 {label}건");
+        assert_eq!(sha(&crate::domain::certificate::canonical(&d, true)), canon_pii, "v1 정규 표현(지문용) {label}건");
+        assert_eq!(sha(&crate::domain::certificate::canonical(&d, false)), canon, "v1 정규 표현(확인표) {label}건");
+    }
+}
+
+/// 눈으로 보는 시험용: `CAREERCERT_DUMP_HTML=<폴더>` 일 때만 1판·2판 HTML 을 떨어뜨린다
+#[test]
+fn 눈시험용_html_떨구기() {
+    let Ok(dir) = std::env::var("CAREERCERT_DUMP_HTML") else { return };
+    let logo = crate::domain::logo::accept(&crate::domain::logo::logo_tests::fake_logo(600, 600, image::ImageFormat::Png)).unwrap();
+    for n in [1usize, 5, 12, 13, 15, 30, 40] {
+        let v1 = v1_doc(n, false);
+        let mut v2 = doc(n);
+        v2.logo = Some(logo.clone());
+        for (tag, d) in [("v1", &v1), ("v2", &v2)] {
+            let h = html(d, issued()).replace("url('/fonts/", "url('fonts/");
+            std::fs::write(format!("{dir}/{tag}-{n}.html"), h).unwrap();
+        }
+    }
+}

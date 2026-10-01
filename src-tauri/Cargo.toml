@@ -1,6 +1,6 @@
 [package]
 name = "career_cert"
-version = "0.1.1"
+version = "0.1.2"
 description = "방과후 강사 경력증명서 발급 시스템"
 authors = ["lohemal"]
 edition = "2021"
@@ -32,6 +32,8 @@ zeroize = "1"
 argon2 = { version = "0.5", default-features = false, features = ["alloc"] }
 # 엑셀(.xlsx·.xlsm) 읽기 — Excel 없이 파일만 읽는다. 매크로(VBA)는 실행하지 않는다(실행 기능이 없다)
 calamine = "0.30"
+# 학교 로고(v0.1.2) — PNG·JPEG·WebP 를 실제로 풀어 확인하고, 출력용 연한 흑백 그림을 만든다
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 # 정식 PDF 저장 위치 고르기 (Rust 에서만 부른다 — 경로가 화면으로 가지 않는다)
 tauri-plugin-dialog = "2"
 # 앱 안 자동 업데이트 (서명 확인은 플러그인이 한다)
@@ -51,6 +53,24 @@ rust_xlsxwriter = "0.89"
 [profile.dev.package.argon2]
 opt-level = 3
 [profile.dev.package.blake2]
+opt-level = 3
+
+# 로고 그림 처리도 개발 빌드에서 최적화한다 (안 하면 시험·연습용 앱에서 그림 변환이 수 초씩 걸린다)
+[profile.dev.package.image]
+opt-level = 3
+[profile.dev.package.png]
+opt-level = 3
+[profile.dev.package."zune-jpeg"]
+opt-level = 3
+[profile.dev.package."zune-core"]
+opt-level = 3
+[profile.dev.package."image-webp"]
+opt-level = 3
+[profile.dev.package.fdeflate]
+opt-level = 3
+[profile.dev.package.miniz_oxide]
+opt-level = 3
+[profile.dev.package.crc32fast]
 opt-level = 3
 
 [profile.release]

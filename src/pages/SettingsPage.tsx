@@ -8,6 +8,7 @@ import type { AppInfo } from '@/ipc/app'
 import { PortableSection } from '@/features/data/PortableSection'
 import { RecoverySection } from '@/features/data/RecoverySection'
 import { UpdateSection } from '@/features/data/UpdateSection'
+import { SchoolLogoField } from '@/features/settings/SchoolLogoField'
 import {
   DEFAULT_PURPOSE,
   DEFAULT_TITLE,
@@ -212,6 +213,7 @@ export function SettingsPage({ info }: Props) {
           {/* Enter 로도 저장된다 */}
           <button type="submit" hidden />
         </form>
+        <SchoolLogoField />
       </Card>
 
       <Card title="증명서 기본값" description="새 증명서를 작성할 때 처음 채워지는 값입니다. 작성 화면에서 그때그때 바꿀 수 있습니다.">

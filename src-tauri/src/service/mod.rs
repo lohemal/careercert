@@ -20,6 +20,7 @@ pub mod portable;
 pub mod recovery;
 pub mod reminder;
 pub mod restore;
+pub mod school_logo;
 pub mod instructor;
 
 /// 보관 상태가 맞지 않을 때의 오류들.

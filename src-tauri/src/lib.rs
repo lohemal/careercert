@@ -137,6 +137,9 @@ pub fn run() {
             commands::app::app_prepare_update,
             commands::settings::settings_get,
             commands::settings::settings_save,
+            commands::settings::school_logo_get,
+            commands::settings::school_logo_pick,
+            commands::settings::school_logo_remove,
             commands::dashboard::dashboard_overview,
             // 강사
             commands::instructor::instructor_search,

@@ -66,7 +66,11 @@ pub fn prepare(conn: &Connection, req: PrepareRequest, now: &str) -> AppResult<B
         careers.push(c);
     }
     let school = settings_repo::get(conn)?;
-    certificate::build(&instructor, &careers, req.issue, &school, today(now)?)
+    let mut built = certificate::build(&instructor, &careers, req.issue, &school, today(now)?)?;
+    // 2판: 지금 학교 로고를 발급 내용에 넣는다(없으면 없음). 확정 때 같은 길로 다시 만들어 비교하므로
+    // 내용 확인 뒤에 로고가 바뀌면 review_token 이 달라져 발급하지 않는다.
+    built.doc.logo = crate::repo::logo::current(conn)?;
+    Ok(built)
 }
 
 #[cfg(test)]

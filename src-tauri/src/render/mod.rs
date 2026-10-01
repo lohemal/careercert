@@ -9,6 +9,7 @@
 //! * 주민번호는 `rrn_text` 가 표시 방식(`RrnDisplay`)에 따라 만든다 — 원본은 바꾸지 않는다.
 
 mod v1;
+mod v2;
 
 use crate::domain::certificate::{CertificateDoc, RrnDisplay};
 use crate::error::{AppError, AppResult};
@@ -40,6 +41,7 @@ pub const DRAFT_MARK: &str = "발급 전 미리보기";
 pub fn render(doc: &CertificateDoc, mode: Mode) -> AppResult<String> {
     match doc.template_version {
         1 => Ok(v1::render(doc, mode)),
+        2 => v2::render(doc, mode),
         v => Err(AppError::new("TEMPLATE_UNKNOWN", "이 프로그램이 모르는 증명서 양식입니다. 프로그램을 업데이트해 주세요.")
             .detail(format!("template_version={v}"))),
     }
