@@ -13,23 +13,10 @@ mod v1;
 use crate::domain::certificate::{CertificateDoc, RrnDisplay};
 use crate::error::{AppError, AppResult};
 
-/// 발급 기록에서 왔다는 증표. **작성 중인 내용으로는 만들 수 없다.**
-///
-/// Phase 6 의 발급 확정·발급 기록 읽기가 `from_issued_record` 로 만든다. 정식 인쇄·PDF 저장은 이것을
-/// 요구하므로, 작성 중 `CertificateDoc` 을 정식 출력에 그대로 넘기는 길이 없다.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct IssuedProof {
-    pub certificate_id: i64,
-    _sealed: (),
-}
-
-impl IssuedProof {
-    /// 발급 기록(ISSUED)을 읽은 쪽만 부른다 — Phase 6.
-    #[allow(dead_code)] // Phase 6 발급 확정이 쓰기 시작한다
-    pub(crate) fn from_issued_record(certificate_id: i64) -> Self {
-        IssuedProof { certificate_id, _sealed: () }
-    }
-}
+/// 발급 기록에서 왔다는 증표 — 정의는 `service::issuance` 에 있고 **그 모듈만 만들 수 있다**
+/// (만드는 함수가 그 모듈 밖에 보이지 않는다). 정식 인쇄·PDF 저장은 이것을 요구하므로, 작성 중
+/// `CertificateDoc` 을 정식 출력에 넘기는 길이 없다.
+pub use crate::service::issuance::IssuedProof;
 
 /// 출력 모드.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -37,7 +24,6 @@ pub enum Mode {
     /// 작성 중 미리보기 — 워터마크
     PreviewDraft,
     /// 발급된 증명서 — 워터마크 없음
-    #[allow(dead_code)] // Phase 6 에서 화면과 이어진다 (지금은 시험·개발 검증만)
     Issued(IssuedProof),
 }
 

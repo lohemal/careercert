@@ -31,25 +31,23 @@ pub fn print_loaded(state: State<'_, AppState>, id: u64, ok: bool, font_ok: bool
 /// 개발 검증용 — **배포 빌드에서는 거절한다.** 가상 자료로만 그린다(실제 강사 자료를 읽지 않는다).
 ///
 /// * `spike` · `dialog` · `print` · `printers` — 작은 시험 문서로 WebView2 출력 기능 확인
-/// * `render` — 가상 증명서(경력 `rows` 건, `mode` draft/issued, `mask`)의 PDF 바이트
+/// * `render` — 가상 증명서(경력 `rows` 건, `mask`)의 **발급 전 미리보기** PDF 바이트
 /// * `render-facts` — 위 PDF 의 쪽 수·크기·글꼴과 기본 파일 이름(JSON)
-/// * `render-save` — issued 모드로 `path` 폴더에 저장 (정식 PDF 저장 경로 확인)
-/// * `render-print` — issued 모드로 `printer` 에 인쇄 (정식 인쇄 경로 확인)
+///
+/// 발급본(워터마크 없음) 출력은 여기서 만들 수 없다 — 발급 증표(`IssuedProof`)는 발급 기록을 읽는
+/// `service::issuance` 만 만든다. 정식 출력 확인은 연습용 자료로 실제로 발급한 뒤 정식 명령으로 한다.
 #[tauri::command]
-#[allow(clippy::too_many_arguments)]
 pub async fn dev_print_spike(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
     kind: String,
     printer: Option<String>,
     rows: Option<u32>,
-    mode: Option<String>,
     mask: Option<bool>,
-    path: Option<String>,
 ) -> crate::error::AppResult<tauri::ipc::Response> {
     use crate::error::AppError;
-    use crate::print::{inspect, output};
-    use crate::render::{self, IssuedProof, Mode};
+    use crate::print::inspect;
+    use crate::render::{self, Mode};
     use tauri::ipc::Response;
 
     if !cfg!(debug_assertions) {
@@ -57,13 +55,6 @@ pub async fn dev_print_spike(
     }
     let engine = state.print.clone();
     let rows = rows.unwrap_or(5) as usize;
-    let mode_of = |m: &Option<String>| {
-        if m.as_deref() == Some("issued") {
-            Mode::Issued(IssuedProof::from_issued_record(0))
-        } else {
-            Mode::PreviewDraft
-        }
-    };
     match kind.as_str() {
         "spike" => Ok(Response::new(engine.pdf(&app, spike_html(rows as u32)).await?)),
         "dialog" => {
@@ -77,7 +68,7 @@ pub async fn dev_print_spike(
         "printers" => Ok(Response::new(serde_json::to_vec(&crate::print::printers())?)),
         "render" | "render-facts" => {
             let doc = dev_doc(&state, rows, mask.unwrap_or(false))?;
-            let pdf = engine.pdf(&app, render::render(&doc, mode_of(&mode))?).await?;
+            let pdf = engine.pdf(&app, render::render(&doc, Mode::PreviewDraft)?).await?;
             if kind == "render" {
                 Ok(Response::new(pdf))
             } else {
@@ -88,19 +79,6 @@ pub async fn dev_print_spike(
                     &serde_json::json!({ "facts": f, "fileName": file, "rrnDisplay": display }),
                 )?))
             }
-        }
-        "render-save" => {
-            let doc = dev_doc(&state, rows, mask.unwrap_or(false))?;
-            let dir = path.ok_or_else(|| AppError::invalid("path"))?;
-            let target = std::path::Path::new(&dir).join(crate::domain::certificate::pdf_file_name(&doc));
-            let pdf = output::issued_pdf(&engine, &app, &doc, IssuedProof::from_issued_record(0)).await?;
-            output::save_pdf(&target, &pdf)?;
-            Ok(Response::new(target.display().to_string().into_bytes()))
-        }
-        "render-print" => {
-            let doc = dev_doc(&state, rows, mask.unwrap_or(false))?;
-            let status = output::issued_print(&engine, &app, &doc, IssuedProof::from_issued_record(0), printer, 1).await?;
-            Ok(Response::new(format!("{status:?}").into_bytes()))
         }
         _ => Err(AppError::invalid("kind")),
     }

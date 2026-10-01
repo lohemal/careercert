@@ -248,6 +248,19 @@ fn clear(window: &WebviewWindow) {
 pub struct Printers {
     pub names: Vec<String>,
     pub default: Option<String>,
+    /// 프린터마다 상태 (스풀러가 아는 만큼)
+    pub list: Vec<PrinterInfo>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrinterInfo {
+    pub name: String,
+    /// `준비` · `오프라인` · `용지 없음` …
+    pub status: String,
+    pub ready: bool,
+    /// 대기 중인 인쇄 작업 수
+    pub jobs: u32,
 }
 
 pub fn printers() -> Printers {
@@ -257,6 +270,6 @@ pub fn printers() -> Printers {
     }
     #[cfg(not(windows))]
     {
-        Printers { names: vec![], default: None }
+        Printers { names: vec![], default: None, list: vec![] }
     }
 }

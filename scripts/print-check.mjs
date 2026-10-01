@@ -41,7 +41,9 @@ const check = (ok, what) => {
   if (!ok) failed++
 }
 
-for (const mode of ['draft', 'issued']) {
+// 발급본(워터마크 없음)은 개발 명령으로 만들 수 없다 — 발급 증표는 발급 기록에서만 나온다.
+// 양식은 워터마크 말고는 같으므로(render_tests) 쪽 나눔은 미리보기로 확인한다.
+for (const mode of ['draft']) {
   for (const [n, pages] of Object.entries(EXPECT)) {
     const r = await call({ kind: 'render-facts', rows: Number(n), mode })
     if (r?.error) {

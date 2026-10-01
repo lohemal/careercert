@@ -1,15 +1,18 @@
 import { lazy, Suspense, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Eye, FileCheck2, Search, Settings, UserRoundSearch } from 'lucide-react'
+import { BadgeCheck, Eye, FileCheck2, Search, Settings, UserRoundSearch } from 'lucide-react'
 
 import { Badge, Button, Card, ErrorNotice, Field, Input, Notice, Page } from '@/components/ui'
 import { useConfirm } from '@/components/useConfirm'
+import { ConfirmIssueDialog } from '@/features/issue/ConfirmIssueDialog'
+import { IssuedPanel } from '@/features/issued/IssuedPanel'
 import { blockers, initialDraft, isSelected, selectedIds, selectInstructor, setField, toggle, type Defaults, type Draft, type IssueFields } from '@/features/issue/draft'
 import { whoLabel } from '@/features/instructors/label'
 import { careerApi } from '@/ipc/career'
 import { certificateApi, type Prepared } from '@/ipc/certificate'
 import { instructorApi, type InstructorRow } from '@/ipc/instructor'
+import type { Issued } from '@/ipc/issuance'
 import { settingsApi } from '@/ipc/settings'
 import s from './IssuePage.module.css'
 
@@ -25,7 +28,7 @@ const PdfPreview = lazy(() => import('@/features/issue/PdfPreview').then((m) => 
  *     (내용 확인 요청은 useMutation 이 아니라 직접 부른다 — mutation 캐시가 요청 값을 들고 있으므로).
  *   * 강사를 바꾸면 주민번호·주소·발급번호를 비운다(`draft.selectInstructor`).
  *
- * 발급 확정(기록 저장)은 Phase 6, 출력(미리보기·인쇄·PDF)은 Phase 5.
+ * [발급 확정] (Phase 6) 이 끝나면 작성 중인 값을 모두 비우고, 발급 기록(`IssuedPanel`)에서만 정식 인쇄·PDF 저장을 한다.
  */
 export function IssuePage() {
   const settings = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
@@ -54,6 +57,9 @@ function IssueForm({ defaults, missingSettings }: { defaults: Defaults; missingS
   const [previewPdf, setPreviewPdf] = useState<ArrayBuffer | null>(null)
   const [previewing, setPreviewing] = useState(false)
   const [previewError, setPreviewError] = useState<unknown>(null)
+  const [confirming, setConfirming] = useState(false)
+  const [staleMessage, setStaleMessage] = useState<string | null>(null)
+  const [issued, setIssued] = useState<Issued | null>(null)
 
   const choices = useQuery({
     queryKey: ['cert-choices', draft.instructorId, draft.fields.issuedOn],
@@ -71,6 +77,15 @@ function IssueForm({ defaults, missingSettings }: { defaults: Defaults; missingS
     setPrepareError(null)
     setPreviewPdf(null)
     setPreviewError(null)
+    setStaleMessage(null)
+  }
+
+  /** 발급 확정됨 — 작성 중인 값(주민번호·주소 포함)은 바로 버린다 */
+  const onIssued = (r: Issued) => {
+    setConfirming(false)
+    update(initialDraft(defaults))
+    setPicking(true)
+    setIssued(r)
   }
 
   const runPreview = async () => {
@@ -116,6 +131,7 @@ function IssueForm({ defaults, missingSettings }: { defaults: Defaults; missingS
         issue: draft.fields,
       })
       setPrepared(r)
+      setStaleMessage(null)
     } catch (e) {
       setPrepared(null)
       setPrepareError(e)
@@ -124,8 +140,19 @@ function IssueForm({ defaults, missingSettings }: { defaults: Defaults; missingS
     }
   }
 
+  if (issued) {
+    return (
+      <Page
+        title="증명서 발급"
+        description={issued.status === 'VOIDED' ? '발급을 취소했습니다.' : '발급 확정이 끝났습니다. 아래에서 정식 인쇄·PDF 저장을 합니다.'}
+      >
+        <IssuedPanel issued={issued} onChange={setIssued} onNew={() => setIssued(null)} />
+      </Page>
+    )
+  }
+
   return (
-    <Page title="증명서 발급" description="강사 선택 → 경력 선택 → 발급 정보 → 내용 확인">
+    <Page title="증명서 발급" description="강사 선택 → 경력 선택 → 발급 정보 → 내용 확인 → 발급 확정">
       {missingSettings.length > 0 && (
         <Notice tone="warn">
           <span className={s.inline}>
@@ -264,17 +291,35 @@ function IssueForm({ defaults, missingSettings }: { defaults: Defaults; missingS
             </Button>
           </div>
           <ErrorNotice error={prepareError} />
+          {staleMessage && <Notice tone="warn">{staleMessage}</Notice>}
           {prepared && (
             <>
               <PreparedView prepared={prepared} />
               <div className={s.actions}>
                 <span className={s.blocked}>인쇄·PDF 저장은 발급 확정 후에 할 수 있습니다.</span>
-                <Button variant="primary" icon={Eye} onClick={runPreview} disabled={previewing}>
+                <Button icon={Eye} onClick={runPreview} disabled={previewing}>
                   {previewing ? 'PDF 만드는 중…' : '실제 출력 미리보기'}
+                </Button>
+                <Button variant="primary" icon={BadgeCheck} onClick={() => setConfirming(true)}>
+                  발급 확정
                 </Button>
               </div>
               <ErrorNotice error={previewError} />
             </>
+          )}
+          {prepared && confirming && (
+            <ConfirmIssueDialog
+              request={{ instructorId: draft.instructorId!, careerIds: chosen, issue: draft.fields }}
+              prepared={prepared}
+              onIssued={onIssued}
+              onStale={(message) => {
+                setConfirming(false)
+                setPrepared(null)
+                setPreviewPdf(null)
+                setStaleMessage(message)
+              }}
+              onClose={() => setConfirming(false)}
+            />
           )}
           {previewPdf && (
             <Suspense fallback={null}>
@@ -398,7 +443,7 @@ function PreparedView({ prepared }: { prepared: Prepared }) {
           {d.department} · {d.managerName} (인) · {d.phone}
         </dd>
       </dl>
-      <Notice tone="success">내용 확인을 마쳤습니다. [실제 출력 미리보기] 로 증명서 모양을 확인할 수 있습니다.</Notice>
+      <Notice tone="success">내용 확인을 마쳤습니다. [실제 출력 미리보기] 로 모양을 본 뒤 [발급 확정] 을 누르세요.</Notice>
     </Card>
   )
 }

@@ -9,6 +9,7 @@
 //!   (이후 Phase) render/ · print/ · crypto/
 
 mod commands;
+mod crypto;
 mod db;
 mod domain;
 pub mod error;
@@ -49,6 +50,7 @@ impl AppState {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             // %APPDATA%\kr.school.careercert\careercert.db
             // 연습용은 %APPDATA%\kr.school.careercert.sandbox\ — 실제 자료와 섞이지 않는다.
@@ -127,6 +129,13 @@ pub fn run() {
             commands::certificate::certificate_choices,
             commands::certificate::certificate_prepare,
             commands::certificate::certificate_preview,
+            // 발급 확정 · 정식 출력 · 취소
+            commands::issuance::certificate_issue,
+            commands::issuance::certificate_issued,
+            commands::issuance::certificate_void,
+            commands::issuance::certificate_save_pdf,
+            commands::issuance::certificate_print,
+            commands::issuance::printers_list,
             // 출력 창이 부르는 것
             commands::print::print_host_ready,
             commands::print::print_take,

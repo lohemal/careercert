@@ -134,6 +134,8 @@ pub struct WarningView {
     pub code: &'static str,
     pub message: String,
     pub career_id: Option<i64>,
+    /// 확정 창의 확인 체크 이름 — 발급 확정 요청에 그대로 돌려보낸다
+    pub ack_key: String,
 }
 
 #[derive(Serialize)]
@@ -141,6 +143,8 @@ pub struct WarningView {
 pub struct PreparedView {
     pub doc: DocView,
     pub warnings: Vec<WarningView>,
+    /// 내용 확인 표 — 개인정보 없는 문서 표현의 SHA-256. 발급 확정 때 그대로 돌려보낸다
+    pub review_token: String,
 }
 
 /// 실제 출력 미리보기 — 작성 중 내용으로 **'발급 전 미리보기' PDF** 를 만든다(정식 출력 아님).
@@ -163,11 +167,14 @@ pub async fn certificate_preview(
 pub fn certificate_prepare(state: State<'_, AppState>, request: PrepareRequest) -> AppResult<PreparedView> {
     let now = now();
     let Built { doc, warnings } = state.db.read(|c| service::prepare(c, request, &now))?;
+    let review_token = crate::service::issuance::review_token(&doc);
     Ok(PreparedView {
+        review_token,
         doc: doc.into(),
         warnings: warnings
             .into_iter()
             .map(|w| WarningView {
+                ack_key: w.ack_key(),
                 code: w.code,
                 message: w.message,
                 career_id: w.career_id,

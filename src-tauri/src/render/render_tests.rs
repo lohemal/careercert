@@ -95,7 +95,7 @@ fn doc(n: usize) -> CertificateDoc {
 }
 
 fn issued() -> Mode {
-    Mode::Issued(IssuedProof::from_issued_record(1))
+    Mode::Issued(IssuedProof::for_test(1))
 }
 
 fn html(d: &CertificateDoc, mode: Mode) -> String {

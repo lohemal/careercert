@@ -62,14 +62,19 @@ export interface Doc {
 }
 
 export interface DocWarning {
+  /** ENDS_AFTER_ISSUE · ISSUE_FAR_PAST · RRN_BIRTH_DATE */
   code: string
   message: string
   careerId: number | null
+  /** 발급 확정 때 '확인함' 으로 돌려보낼 이름 */
+  ackKey: string
 }
 
 export interface Prepared {
   doc: Doc
   warnings: DocWarning[]
+  /** 내용 확인 표 (개인정보 없음) — 발급 확정 요청에 그대로 */
+  reviewToken: string
 }
 
 export const certificateApi = {

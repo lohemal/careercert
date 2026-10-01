@@ -4,6 +4,7 @@ pub mod career;
 pub mod certificate;
 pub mod dashboard;
 pub mod instructor;
+pub mod issuance;
 pub mod print;
 pub mod settings;
 

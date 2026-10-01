@@ -6,7 +6,7 @@
 //! ```
 //!
 //! 정식 출력 함수는 `IssuedProof` 를 요구한다. 증표는 발급 기록을 읽은 쪽(Phase 6)만 만들 수 있으므로
-//! 작성 중 내용을 정식 출력에 넘기는 길이 없다. 정식 출력 명령은 Phase 6 전까지 화면에 연결하지 않는다.
+//! 작성 중 내용을 정식 출력에 넘기는 길이 없다. 정식 출력 명령(`commands::issuance`)은 발급 번호만 받는다.
 
 use std::path::Path;
 
@@ -24,14 +24,12 @@ pub async fn draft_preview_pdf(engine: &Engine, app: &AppHandle, doc: &Certifica
 }
 
 /// 발급된 증명서 PDF (워터마크 없음).
-#[allow(dead_code)] // Phase 6 발급이력·발급 확정이 부른다
 pub async fn issued_pdf(engine: &Engine, app: &AppHandle, doc: &CertificateDoc, proof: IssuedProof) -> AppResult<Vec<u8>> {
     let html = render::render(doc, Mode::Issued(proof))?;
     engine.pdf(app, html).await
 }
 
 /// 발급된 증명서를 프린터로.
-#[allow(dead_code)] // Phase 6
 pub async fn issued_print(
     engine: &Engine,
     app: &AppHandle,
@@ -45,7 +43,6 @@ pub async fn issued_print(
 }
 
 /// 사용자가 고른 경로에 PDF 를 쓴다. 다 쓰기 전에는 그 이름으로 보이지 않게 옆에 쓰고 바꿔 단다.
-#[allow(dead_code)] // Phase 6 (정식 PDF 저장)
 pub fn save_pdf(path: &Path, bytes: &[u8]) -> AppResult<()> {
     if !bytes.starts_with(b"%PDF") {
         return Err(AppError::internal("PDF 가 아닌 내용"));

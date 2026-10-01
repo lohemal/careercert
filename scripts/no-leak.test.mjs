@@ -47,7 +47,7 @@ test('화면 코드가 브라우저 저장소를 쓰지 않는다', () => {
 })
 
 test('증명서 작성 화면은 useMutation 을 쓰지 않는다', () => {
-  const issue = ui.filter((f) => /[\\/](IssuePage\.tsx|features[\\/]issue[\\/])/.test(f))
+  const issue = ui.filter((f) => /[\\/](IssuePage\.tsx|features[\\/]issued?[\\/])/.test(f))
   assert.ok(issue.length > 0, '작성 화면 파일을 찾지 못했다')
   assert.deepEqual(find(issue, /\buseMutation\b/), [])
 })

@@ -156,19 +156,26 @@ pub unsafe fn show_print_ui(c: &ICoreWebView2Controller) -> Result<(), String> {
 pub fn printers() -> Printers {
     use windows::core::PWSTR;
     use windows::Win32::Graphics::Printing::{
-        EnumPrintersW, GetDefaultPrinterW, PRINTER_ENUM_CONNECTIONS, PRINTER_ENUM_LOCAL, PRINTER_INFO_4W,
+        EnumPrintersW, GetDefaultPrinterW, PRINTER_ENUM_CONNECTIONS, PRINTER_ENUM_LOCAL, PRINTER_INFO_2W,
     };
     let mut names = Vec::new();
+    let mut list = Vec::new();
     unsafe {
         let flags = PRINTER_ENUM_LOCAL | PRINTER_ENUM_CONNECTIONS;
         let (mut need, mut count) = (0u32, 0u32);
-        let _ = EnumPrintersW(flags, None, 4, None, &mut need, &mut count);
+        let _ = EnumPrintersW(flags, None, 2, None, &mut need, &mut count);
         if need > 0 {
             let mut buf = vec![0u8; need as usize];
-            if EnumPrintersW(flags, None, 4, Some(&mut buf), &mut need, &mut count).is_ok() {
-                let items = std::slice::from_raw_parts(buf.as_ptr() as *const PRINTER_INFO_4W, count as usize);
+            if EnumPrintersW(flags, None, 2, Some(&mut buf), &mut need, &mut count).is_ok() {
+                let items = std::slice::from_raw_parts(buf.as_ptr() as *const PRINTER_INFO_2W, count as usize);
                 for it in items {
                     if let Ok(s) = it.pPrinterName.to_string() {
+                        list.push(super::PrinterInfo {
+                            status: status_label(it.Status, it.Attributes),
+                            ready: is_ready(it.Status, it.Attributes),
+                            jobs: it.cJobs,
+                            name: s.clone(),
+                        });
                         names.push(s);
                     }
                 }
@@ -183,6 +190,55 @@ pub fn printers() -> Printers {
                 default = PWSTR(w.as_mut_ptr()).to_string().ok();
             }
         }
-        Printers { names, default }
+        Printers { names, default, list }
+    }
+}
+
+// 스풀러가 알려 주는 프린터 상태 (winspool.h). 가상·네트워크 프린터는 0(준비)으로만 오는 일이 많다.
+const PAUSED: u32 = 0x1;
+const ERROR: u32 = 0x2;
+const PAPER_JAM: u32 = 0x8;
+const PAPER_OUT: u32 = 0x10;
+const PAPER_PROBLEM: u32 = 0x40;
+const OFFLINE: u32 = 0x80;
+const BUSY: u32 = 0x200;
+const PRINTING: u32 = 0x400;
+const NOT_AVAILABLE: u32 = 0x1000;
+const NO_TONER: u32 = 0x40000;
+const USER_INTERVENTION: u32 = 0x100000;
+const DOOR_OPEN: u32 = 0x400000;
+const ATTR_WORK_OFFLINE: u32 = 0x400;
+
+fn is_ready(status: u32, attributes: u32) -> bool {
+    status & (PAUSED | ERROR | PAPER_JAM | PAPER_OUT | PAPER_PROBLEM | OFFLINE | NOT_AVAILABLE | NO_TONER | USER_INTERVENTION | DOOR_OPEN) == 0
+        && attributes & ATTR_WORK_OFFLINE == 0
+}
+
+fn status_label(status: u32, attributes: u32) -> String {
+    let mut parts = Vec::new();
+    if attributes & ATTR_WORK_OFFLINE != 0 || status & OFFLINE != 0 {
+        parts.push("오프라인");
+    }
+    for (bit, label) in [
+        (PAUSED, "일시 중지"),
+        (ERROR, "오류"),
+        (PAPER_JAM, "용지 걸림"),
+        (PAPER_OUT, "용지 없음"),
+        (PAPER_PROBLEM, "용지 문제"),
+        (NOT_AVAILABLE, "사용할 수 없음"),
+        (NO_TONER, "토너 없음"),
+        (DOOR_OPEN, "덮개 열림"),
+        (USER_INTERVENTION, "확인 필요"),
+        (BUSY, "사용 중"),
+        (PRINTING, "인쇄 중"),
+    ] {
+        if status & bit != 0 {
+            parts.push(label);
+        }
+    }
+    if parts.is_empty() {
+        "준비".into()
+    } else {
+        parts.join(" · ")
     }
 }

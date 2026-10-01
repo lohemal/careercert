@@ -1,0 +1,76 @@
+.lead {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px var(--sp-5);
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.facts dt {
+  color: var(--text-muted);
+}
+
+.facts dd {
+  margin: 0;
+}
+
+.strong {
+  font-weight: 700;
+}
+
+.warnings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.wTitle {
+  font-size: var(--fs-sm);
+  color: var(--warn-text);
+}
+
+.wItem,
+.wItemDanger {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--warn-border);
+  background: var(--warn-soft);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: var(--fs-sm);
+}
+
+.wItemDanger {
+  border: 2px solid var(--error);
+  background: var(--error-soft);
+}
+
+.wItem input,
+.wItemDanger input {
+  margin-top: 3px;
+}
+
+.dangerHead {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--error-text);
+  margin-bottom: 2px;
+}
+
+.ack {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  margin-top: 2px;
+}

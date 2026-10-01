@@ -49,6 +49,11 @@ pub(crate) const MIGRATIONS: &[Migration] = &[
         name: "005_planned_end_date",
         sql: include_str!("../../migrations/005_planned_end_date.sql"),
     },
+    Migration {
+        version: 6,
+        name: "006_certificates",
+        sql: include_str!("../../migrations/006_certificates.sql"),
+    },
 ];
 
 pub fn latest_version() -> i32 {

@@ -13,6 +13,7 @@ pub mod bulk_end;
 pub mod career;
 pub mod certificate;
 pub mod dashboard;
+pub mod issuance;
 pub mod instructor;
 
 /// 보관 상태가 맞지 않을 때의 오류들.

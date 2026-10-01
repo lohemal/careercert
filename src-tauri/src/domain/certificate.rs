@@ -361,6 +361,91 @@ pub fn build(
     })
 }
 
+impl Warning {
+    /// 확정 창의 확인 체크 하나를 가리키는 이름 — `ENDS_AFTER_ISSUE:12`, `ISSUE_FAR_PAST`.
+    pub fn ack_key(&self) -> String {
+        match self.career_id {
+            Some(id) => format!("{}:{id}", self.code),
+            None => self.code.to_string(),
+        }
+    }
+}
+
+// ---------------------------------------------------------------
+// 정규화한 문서 표현 (문서 지문의 입력)
+// ---------------------------------------------------------------
+
+/// 문서 지문용 정규 표현 판 — 바꾸면 옛 발급 기록의 지문이 맞지 않으므로 **고치지 않는다.**
+pub const CANONICAL_VERSION: &str = "CERTDOC/1";
+
+/// 정규 표현. 한 줄에 `이름=값` 하나, **줄 차례가 고정**이다(구조체 필드 차례나 JSON 직렬화에 기대지 않는다).
+/// 값의 `\` 는 `\\`, 줄바꿈은 `\n`·`\r`(두 글자)로 바꿔 한 줄을 지킨다. 경력 줄은 seq 차례.
+///
+/// ```text
+/// CERTDOC/1
+/// template_version=1
+/// title=… / issue_no=… / issued_on=YYYY-MM-DD / purpose=…
+/// holder.name=… / holder.rrn=… / holder.address=…        ← include_pii=false 이면 이 두 줄 대신 '-'
+/// rrn_display=FULL|MASK_BACK
+/// school.issuer_title=… / school.department=… / school.manager_name=… / school.phone=…
+/// items=N
+/// item.1.source=<career id> / item.1.start=… / item.1.end=YYYY-MM-DD|NONE / item.1.from=… / item.1.to=…
+/// item.1.program=… / item.1.position=… / item.1.duty=…
+/// ```
+///
+/// * `include_pii = true`  — 발급 기록의 지문(HMAC)용. **결과를 로그·파일에 남기지 않는다.**
+/// * `include_pii = false` — 내용 확인과 발급 확정 사이에 자료가 바뀌었는지 보는 표(그냥 SHA-256).
+pub fn canonical(doc: &CertificateDoc, include_pii: bool) -> zeroize::Zeroizing<String> {
+    fn e(v: &str) -> String {
+        v.replace('\\', "\\\\").replace('\n', "\\n").replace('\r', "\\r")
+    }
+    let mut out = String::with_capacity(1024);
+    out.push_str(CANONICAL_VERSION);
+    out.push('\n');
+    let mut line = |k: &str, v: &str| {
+        out.push_str(k);
+        out.push('=');
+        out.push_str(&e(v));
+        out.push('\n');
+    };
+    line("template_version", &doc.template_version.to_string());
+    line("title", &doc.title);
+    line("issue_no", &doc.issue_no);
+    line("issued_on", &date::to_iso(doc.issued_on));
+    line("purpose", &doc.purpose);
+    line("holder.name", &doc.holder.name);
+    if include_pii {
+        line("holder.rrn", doc.holder.rrn.as_str());
+        line("holder.address", &doc.holder.address);
+    } else {
+        line("holder.rrn", "-");
+        line("holder.address", "-");
+    }
+    line("rrn_display", doc.rrn_display.code());
+    line("school.issuer_title", &doc.school.issuer_title);
+    line("school.department", &doc.school.department);
+    line("school.manager_name", &doc.school.manager_name);
+    line("school.phone", &doc.school.phone);
+    line("items", &doc.items.len().to_string());
+    for (i, it) in doc.items.iter().enumerate() {
+        let n = i + 1;
+        line(&format!("item.{n}.source"), &it.source_career_id.to_string());
+        line(&format!("item.{n}.start"), &date::to_iso(it.start_date));
+        line(&format!("item.{n}.end"), &it.end_date.map(date::to_iso).unwrap_or_else(|| "NONE".into()));
+        line(&format!("item.{n}.from"), &it.from_text);
+        line(&format!("item.{n}.to"), &it.to_text);
+        line(&format!("item.{n}.program"), &it.program_name);
+        line(&format!("item.{n}.position"), &it.position);
+        line(&format!("item.{n}.duty"), &it.duty);
+    }
+    zeroize::Zeroizing::new(out)
+}
+
+/// 공백을 모두 뺀 발급번호 — 중복 비교용(출력에는 원문을 쓴다).
+pub fn issue_no_key(issue_no: &str) -> String {
+    issue_no.chars().filter(|c| !c.is_whitespace()).collect()
+}
+
 /// 정식 PDF 의 기본 파일 이름 `경력증명서_김으뜸_제2026-152호.pdf`.
 ///
 /// * 성명과 발급번호**만** 쓴다 — 주민번호·주소는 절대 넣지 않는다.

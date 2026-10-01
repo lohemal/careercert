@@ -15,6 +15,8 @@ pub enum Action {
     CareerArchive,
     CareerUnarchive,
     BulkEnd,
+    CertificateIssue,
+    CertificateVoid,
 }
 
 impl Action {
@@ -30,6 +32,8 @@ impl Action {
             Action::CareerArchive => "CAREER_ARCHIVE",
             Action::CareerUnarchive => "CAREER_UNARCHIVE",
             Action::BulkEnd => "BULK_END",
+            Action::CertificateIssue => "CERTIFICATE_ISSUE",
+            Action::CertificateVoid => "CERTIFICATE_VOID",
         }
     }
 
@@ -45,6 +49,7 @@ impl Action {
             | Action::CareerArchive
             | Action::CareerUnarchive => "career",
             Action::BulkEnd => "bulk_end",
+            Action::CertificateIssue | Action::CertificateVoid => "certificate",
         }
     }
 }
