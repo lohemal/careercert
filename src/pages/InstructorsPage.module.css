@@ -1,0 +1,345 @@
+/* 두 칸: 왼쪽 목록(고정 폭) · 오른쪽 상세. 각 칸이 따로 스크롤된다. */
+.panes {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: var(--sp-4);
+  height: calc(100vh - var(--topbar-h) - 44px);
+  min-height: 480px;
+}
+
+/* 좁은 창(최소 1120px)에서는 목록을 줄여 경력 표 자리를 낸다 */
+@media (max-width: 1280px) {
+  .panes {
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: var(--sp-3);
+  }
+  .right {
+    padding: var(--sp-3);
+  }
+}
+
+/* ---------- 왼쪽 ---------- */
+
+.left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--sp-3);
+  background: var(--bg);
+}
+
+.leftTools {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.searchBox {
+  position: relative;
+  flex: 1;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-faint);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  padding-left: 32px;
+}
+
+.scopes {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+}
+
+.scope,
+.scopeOn {
+  flex: 1;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.scopeOn {
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 calc(var(--sp-2) * -1);
+  padding: 0 var(--sp-2);
+}
+
+.row,
+.rowOn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  text-align: left;
+}
+
+.row:hover {
+  background: var(--surface-2);
+}
+
+.rowOn {
+  background: var(--primary-soft);
+  border-color: var(--primary-border);
+}
+
+.rowTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.rowName {
+  font-weight: 700;
+  font-size: var(--fs-md);
+}
+
+/* 동명이인 구분 메모 — 같은 이름이 목록에 있으면 더 눈에 띄게 */
+.dist {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.distStrong {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--primary-text);
+  background: var(--primary-soft);
+  border: 1px solid var(--primary-border);
+  border-radius: var(--radius-full);
+  padding: 0 8px;
+}
+
+.rowMeta {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.listFoot {
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  text-align: right;
+}
+
+.empty {
+  padding: var(--sp-6) var(--sp-2);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ---------- 오른쪽 ---------- */
+
+.right {
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--sp-4);
+  background: var(--bg);
+}
+
+.placeholder {
+  color: var(--text-muted);
+  padding: var(--sp-8) 0;
+  text-align: center;
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.detailHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.detailTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.detailTitle h2 {
+  font-size: var(--fs-xl);
+}
+
+.detailActions {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.info {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--sp-1) var(--sp-5);
+  margin: 0;
+}
+
+.info dt {
+  color: var(--text-muted);
+}
+
+.info dd {
+  margin: 0;
+}
+
+.memo {
+  white-space: pre-wrap;
+}
+
+.muted {
+  color: var(--text-faint);
+}
+
+.careerHead {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  border-top: 1px solid var(--border);
+  padding-top: var(--sp-4);
+}
+
+.careerHead h3 {
+  font-size: var(--fs-md);
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* ---------- 경력 표 ---------- */
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.table th {
+  text-align: left;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.colPeriod {
+  width: 1%;
+}
+
+.period {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.reason {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.colActions {
+  width: 1%;
+}
+
+.colDuty {
+  min-width: 6em;
+}
+
+.actions {
+  width: 1%;
+}
+
+/* 좁은 창에서는 버튼이 줄을 바꿔 표가 옆으로 넘치지 않는다 */
+.actionsInner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px;
+  min-width: 88px;
+}
+
+.rowArchived td {
+  color: var(--text-faint);
+  background: var(--surface-2);
+}
+
+.emptyCell {
+  text-align: center;
+  color: var(--text-muted);
+  padding: var(--sp-6) !important;
+}

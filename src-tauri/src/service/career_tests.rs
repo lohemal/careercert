@@ -4,7 +4,7 @@ use super::*;
 use crate::db::Db;
 use crate::domain::career::{CareerStatus, Term};
 use crate::domain::instructor::InstructorInput;
-use crate::repo::instructor::Filter;
+use crate::repo::instructor::{Filter, Scope};
 use crate::service::instructor;
 
 const NOW: &str = "2026-10-01T09:00:00";
@@ -61,7 +61,7 @@ fn kim(db: &Db) -> (i64, Vec<Career>) {
         ended("2025-03-05", "2026-02-06"),
     ]
     .into_iter()
-    .map(|i| db.write(|c| create(c, who, i, NOW)).unwrap())
+    .map(|i| db.write(|c| create(c, who, i, false, NOW)).unwrap())
     .collect();
     (who, list)
 }
@@ -103,7 +103,7 @@ fn 재직중_경력을_정상_종료한다() {
     let db = Db::memory();
     let (_, created) = kim(&db);
     let id = created[0].id; // 2026-03-04 ~ 현재
-    let done = db.write(|c| end(c, id, "2026-10-31", EndReason::ContractEnd, LATER)).unwrap();
+    let done = db.write(|c| end(c, id, "2026-10-31", EndReason::ContractEnd, false, LATER)).unwrap();
     assert_eq!(
         done.fields.term,
         Term::Ended {
@@ -136,7 +136,7 @@ fn 이미_종료된_경력의_종료는_거부하고_아무것도_바꾸지_않�
     let (_, created) = kim(&db);
     let id = created[1].id; // 2024-03-08 ~ 2025-02-07
     let before = db.read(|c| get(c, id)).unwrap();
-    let e = db.write(|c| end(c, id, "2025-02-28", EndReason::Terminated, LATER)).unwrap_err();
+    let e = db.write(|c| end(c, id, "2025-02-28", EndReason::Terminated, false, LATER)).unwrap_err();
     assert_eq!(e.code, "CAREER_ALREADY_ENDED");
     assert_eq!(db.read(|c| get(c, id)).unwrap(), before);
 }
@@ -146,7 +146,7 @@ fn 시작일보다_이른_종료는_거부한다() {
     let db = Db::memory();
     let (_, created) = kim(&db);
     let e = db
-        .write(|c| end(c, created[0].id, "2026-03-03", EndReason::Terminated, LATER))
+        .write(|c| end(c, created[0].id, "2026-03-03", EndReason::Terminated, false, LATER))
         .unwrap_err();
     assert_eq!(e.code, "CAREER_END_BEFORE_START");
 }
@@ -157,8 +157,8 @@ fn 수정으로_종료를_되돌릴_수_있다() {
     let db = Db::memory();
     let (_, created) = kim(&db);
     let id = created[0].id;
-    db.write(|c| end(c, id, "2026-10-31", EndReason::Terminated, NOW)).unwrap();
-    let back = db.write(|c| update(c, id, active("2026-03-04"), LATER)).unwrap();
+    db.write(|c| end(c, id, "2026-10-31", EndReason::Terminated, true, NOW)).unwrap();
+    let back = db.write(|c| update(c, id, active("2026-03-04"), false, LATER)).unwrap();
     assert_eq!(back.fields.term, Term::Active);
     assert_eq!(back.period(), "2026.03.04 ~ 현재");
 }
@@ -170,7 +170,7 @@ fn 수정도_상태_규칙을_지킨다() {
     let mut bad = active("2026-03-04");
     bad.end_date = Some("2026-10-31".into());
     assert_eq!(
-        db.write(|c| update(c, created[0].id, bad, NOW)).unwrap_err().code,
+        db.write(|c| update(c, created[0].id, bad, false, NOW)).unwrap_err().code,
         "CAREER_ACTIVE_WITH_END"
     );
 }
@@ -194,7 +194,7 @@ fn 경력을_보관하면_기본_목록에서_빠지고_해제하면_돌아온�
                 c,
                 &Filter {
                     query: "김으뜸".into(),
-                    include_archived: false,
+                    scope: Scope::All,
                 },
             )
         })
@@ -212,11 +212,11 @@ fn 보관된_경력은_고치거나_종료할_수_없다() {
     let id = created[0].id;
     db.write(|c| archive(c, id, NOW)).unwrap();
     assert_eq!(
-        db.write(|c| end(c, id, "2026-10-31", EndReason::ContractEnd, NOW)).unwrap_err().code,
+        db.write(|c| end(c, id, "2026-10-31", EndReason::ContractEnd, false, NOW)).unwrap_err().code,
         "ARCHIVED"
     );
     assert_eq!(
-        db.write(|c| update(c, id, active("2026-03-05"), NOW)).unwrap_err().code,
+        db.write(|c| update(c, id, active("2026-03-05"), false, NOW)).unwrap_err().code,
         "ARCHIVED"
     );
     assert_eq!(db.write(|c| archive(c, id, NOW)).unwrap_err().code, "ALREADY_ARCHIVED");
@@ -228,11 +228,11 @@ fn 보관된_강사에게는_경력을_더하거나_고칠_수_없다() {
     let (who, created) = kim(&db);
     db.write(|c| instructor::archive(c, who, NOW)).unwrap();
     assert_eq!(
-        db.write(|c| create(c, who, active("2027-03-02"), NOW)).unwrap_err().code,
+        db.write(|c| create(c, who, active("2027-03-02"), false, NOW)).unwrap_err().code,
         "ARCHIVED"
     );
     assert_eq!(
-        db.write(|c| end(c, created[0].id, "2026-10-31", EndReason::ContractEnd, NOW))
+        db.write(|c| end(c, created[0].id, "2026-10-31", EndReason::ContractEnd, false, NOW))
             .unwrap_err()
             .code,
         "ARCHIVED"
@@ -245,10 +245,10 @@ fn 보관된_강사에게는_경력을_더하거나_고칠_수_없다() {
 #[test]
 fn 없는_강사나_경력은_찾을_수_없다() {
     let db = Db::memory();
-    assert_eq!(db.write(|c| create(c, 99, active("2026-03-04"), NOW)).unwrap_err().code, "NOT_FOUND");
+    assert_eq!(db.write(|c| create(c, 99, active("2026-03-04"), false, NOW)).unwrap_err().code, "NOT_FOUND");
     assert_eq!(db.read(|c| list(c, 99, false)).unwrap_err().code, "NOT_FOUND");
     assert_eq!(
-        db.write(|c| end(c, 99, "2026-10-31", EndReason::ContractEnd, NOW)).unwrap_err().code,
+        db.write(|c| end(c, 99, "2026-10-31", EndReason::ContractEnd, false, NOW)).unwrap_err().code,
         "NOT_FOUND"
     );
 }
@@ -259,6 +259,102 @@ fn 거절된_등록은_아무것도_남기지_않는다() {
     let who = teacher(&db, "김으뜸");
     let mut bad = ended("2026-03-04", "2026-03-01");
     bad.end_reason = Some(EndReason::Terminated);
-    assert!(db.write(|c| create(c, who, bad, NOW)).is_err());
+    assert!(db.write(|c| create(c, who, bad, false, NOW)).is_err());
     assert!(db.read(|c| list(c, who, true)).unwrap().is_empty());
+}
+
+// ---------------- 미래 종료일 ----------------
+
+#[test]
+fn 미래_종료일로_종료하려면_확인이_필요하다() {
+    let db = Db::memory();
+    let (_, created) = kim(&db);
+    let id = created[0].id; // 2026-03-04 ~ 현재, 오늘은 2026-10-01
+    let e = db
+        .write(|c| end(c, id, "2026-12-31", EndReason::ContractEnd, false, NOW))
+        .unwrap_err();
+    assert_eq!(e.code, "FUTURE_END_UNCONFIRMED");
+    assert_eq!(e.user_message, "종료일이 오늘 이후입니다. 2026.12.31로 종료 처리하시겠습니까?");
+    assert_eq!(db.read(|c| get(c, id)).unwrap().fields.term, Term::Active, "확인 전에는 그대로");
+
+    let done = db
+        .write(|c| end(c, id, "2026-12-31", EndReason::ContractEnd, true, NOW))
+        .unwrap();
+    assert_eq!(done.period(), "2026.03.04 ~ 2026.12.31");
+}
+
+#[test]
+fn 수정에서도_종료일을_미래로_바꾸면_확인한다() {
+    let db = Db::memory();
+    let (_, created) = kim(&db);
+    let id = created[0].id;
+    let future = ended("2026-03-04", "2027-02-12");
+    assert_eq!(
+        db.write(|c| update(c, id, future.clone(), false, NOW)).unwrap_err().code,
+        "FUTURE_END_UNCONFIRMED"
+    );
+    db.write(|c| update(c, id, future.clone(), true, NOW)).unwrap();
+
+    // 종료일은 그대로 두고 메모만 고치면 다시 묻지 않는다
+    let mut memo_only = future;
+    memo_only.memo = "메모".into();
+    assert!(db.write(|c| update(c, id, memo_only, false, LATER)).is_ok());
+}
+
+#[test]
+fn 미래_종료일로_새_경력을_넣을_때도_확인한다() {
+    let db = Db::memory();
+    let who = teacher(&db, "김가람");
+    let v = ended("2026-03-04", "2027-02-12");
+    assert_eq!(
+        db.write(|c| create(c, who, v.clone(), false, NOW)).unwrap_err().code,
+        "FUTURE_END_UNCONFIRMED"
+    );
+    assert!(db.write(|c| create(c, who, v, true, NOW)).is_ok());
+}
+
+// ---------------- 변경 기록 ----------------
+
+#[test]
+fn 바꾼_일은_변경_기록에_남고_값은_남지_않는다() {
+    use crate::repo::audit;
+    let db = Db::memory();
+    let who = teacher(&db, "김가람");
+    let id = db.write(|c| create(c, who, active("2026-03-04"), false, NOW)).unwrap().id;
+    let mut v = active("2026-03-04");
+    v.duty = "비밀스러운 지도사항".into();
+    v.memo = "비밀 메모".into();
+    db.write(|c| update(c, id, v, false, NOW)).unwrap();
+    db.write(|c| end(c, id, "2026-09-30", EndReason::Terminated, false, NOW)).unwrap();
+    db.write(|c| archive(c, id, NOW)).unwrap();
+    db.write(|c| unarchive(c, id, NOW)).unwrap();
+
+    let log = db.read(|c| audit::for_target(c, "career", id)).unwrap();
+    let rows: Vec<(String, String)> = log.iter().map(|e| (e.action.clone(), e.summary.clone())).collect();
+    assert_eq!(
+        rows,
+        vec![
+            ("CAREER_CREATE".into(), "등록".into()),
+            ("CAREER_UPDATE".into(), "변경 항목: 지도사항, 메모".into()),
+            ("CAREER_END".into(), "종료일 2026-09-30 · 중도해지".into()),
+            ("CAREER_ARCHIVE".into(), "보관".into()),
+            ("CAREER_UNARCHIVE".into(), "보관 해제".into()),
+        ]
+    );
+    let all = db.read(audit::all).unwrap();
+    for e in &all {
+        assert!(!e.summary.contains("비밀"), "{e:?}");
+        assert!(!e.summary.contains("김가람"), "{e:?}");
+    }
+}
+
+#[test]
+fn 바뀐_것이_없으면_기록도_수정_시각도_그대로다() {
+    use crate::repo::audit;
+    let db = Db::memory();
+    let who = teacher(&db, "김가람");
+    let id = db.write(|c| create(c, who, active("2026-03-04"), false, NOW)).unwrap().id;
+    let same = db.write(|c| update(c, id, active("2026-03-04"), false, LATER)).unwrap();
+    assert_eq!(same.updated_at, NOW);
+    assert_eq!(db.read(|c| audit::for_target(c, "career", id)).unwrap().len(), 1);
 }

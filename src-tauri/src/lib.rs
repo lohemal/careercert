@@ -13,8 +13,6 @@ mod db;
 mod domain;
 pub mod error;
 mod repo;
-// Phase 3 화면 명령이 붙기 전까지는 시험만 쓴다
-#[cfg_attr(not(test), allow(dead_code))]
 mod service;
 
 use std::sync::{Arc, Mutex};
@@ -97,6 +95,26 @@ pub fn run() {
             commands::app::app_info,
             commands::settings::settings_get,
             commands::settings::settings_save,
+            commands::dashboard::dashboard_overview,
+            // 강사
+            commands::instructor::instructor_search,
+            commands::instructor::instructor_get,
+            commands::instructor::instructor_create,
+            commands::instructor::instructor_update,
+            commands::instructor::instructor_archive,
+            commands::instructor::instructor_unarchive,
+            // 경력
+            commands::career::career_list,
+            commands::career::career_create,
+            commands::career::career_update,
+            commands::career::career_end,
+            commands::career::career_archive,
+            commands::career::career_unarchive,
+            commands::career::career_hints,
+            // 일괄 종료
+            commands::bulk_end::bulk_end_candidates,
+            commands::bulk_end::bulk_end_preview,
+            commands::bulk_end::bulk_end_apply,
         ])
         .run(tauri::generate_context!())
         .expect("경력증명서 발급 시스템을 시작하지 못했습니다.");

@@ -10,17 +10,119 @@
   font-size: var(--fs-sm);
 }
 
-.facts {
+/* ---------- 숫자 칸 ---------- */
+
+.tiles {
   display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: var(--sp-2) var(--sp-5);
-  margin: 0;
+  grid-template-columns: 200px 200px minmax(0, 1fr);
+  gap: var(--sp-3);
 }
 
-.facts dt {
+.tile,
+.tileWide {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  text-align: left;
+}
+
+.tile:hover {
+  border-color: var(--primary-border);
+  background: var(--primary-soft);
+}
+
+.tileLabel {
+  font-size: var(--fs-sm);
   color: var(--text-muted);
+  font-weight: 600;
 }
 
-.facts dd {
+.tileValue {
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.schoolName {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  margin: 4px 0;
+}
+
+.tileNote {
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+}
+
+/* ---------- 확인 필요 ---------- */
+
+.checks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.check + .check {
+  border-top: 1px solid var(--border);
+  padding-top: var(--sp-4);
+}
+
+.checkTitle {
+  font-size: var(--fs-base);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--warn);
+  color: var(--white);
+  font-size: 11px;
+  display: inline-grid;
+  place-items: center;
+}
+
+.checkDesc {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  margin: 2px 0 var(--sp-2);
+}
+
+.items {
   margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.items li {
+  display: flex;
+  gap: var(--sp-3);
+  align-items: baseline;
+}
+
+.link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--primary-text);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.detail {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
 }

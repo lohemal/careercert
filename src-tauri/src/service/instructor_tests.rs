@@ -1,4 +1,5 @@
 use super::*;
+use crate::repo::instructor::Scope;
 use crate::db::Db;
 
 const NOW: &str = "2026-10-01T09:00:00";
@@ -21,7 +22,7 @@ fn names(list: &[Summary]) -> Vec<(String, String)> {
 fn filter(q: &str, include_archived: bool) -> Filter {
     Filter {
         query: q.into(),
-        include_archived,
+        scope: if include_archived { Scope::Everything } else { Scope::All },
     }
 }
 
@@ -133,5 +134,66 @@ fn 없는_강사는_찾을_수_없다() {
     assert_eq!(
         db.write(|c| update(c, 99, input("가", ""), NOW)).unwrap_err().code,
         "NOT_FOUND"
+    );
+}
+
+#[test]
+fn 필터는_재직중_전체_보관으로_나뉜다() {
+    use crate::domain::career::{CareerInput, CareerStatus};
+    let db = Db::memory();
+    let working = db.write(|c| create(c, input("김재직", ""), NOW)).unwrap();
+    let done = db.write(|c| create(c, input("박종료", ""), NOW)).unwrap();
+    let gone = db.write(|c| create(c, input("최보관", ""), NOW)).unwrap();
+    let career = |status: CareerStatus, end: Option<&str>| CareerInput {
+        program_name: "마술".into(),
+        position: "강사".into(),
+        duty: "방과후학교 마술".into(),
+        start_date: "2025-03-05".into(),
+        status,
+        end_date: end.map(String::from),
+        end_reason: end.map(|_| crate::domain::career::EndReason::ContractEnd),
+        memo: "".into(),
+    };
+    db.write(|c| crate::service::career::create(c, working.id, career(CareerStatus::Active, None), false, NOW))
+        .unwrap();
+    db.write(|c| {
+        crate::service::career::create(c, done.id, career(CareerStatus::Ended, Some("2026-02-06")), false, NOW)
+    })
+    .unwrap();
+    db.write(|c| crate::service::career::create(c, gone.id, career(CareerStatus::Active, None), false, NOW))
+        .unwrap();
+    db.write(|c| archive(c, gone.id, NOW)).unwrap();
+
+    let by = |scope: Scope| -> Vec<String> {
+        db.read(|c| search(c, &Filter { query: "".into(), scope }))
+            .unwrap()
+            .into_iter()
+            .map(|s| s.instructor.name)
+            .collect()
+    };
+    assert_eq!(by(Scope::Active), vec!["김재직"], "보관한 강사는 재직중 경력이 있어도 빠진다");
+    assert_eq!(by(Scope::All), vec!["김재직", "박종료"]);
+    assert_eq!(by(Scope::Archived), vec!["최보관"]);
+    assert_eq!(by(Scope::Everything).len(), 3);
+}
+
+#[test]
+fn 강사_변경_기록에는_항목_이름만_남는다() {
+    use crate::repo::audit;
+    let db = Db::memory();
+    let a = db.write(|c| create(c, input("김으뜸", ""), NOW)).unwrap();
+    let mut v = input("김으뜸", "1985년생");
+    v.phone = "000-1111-2222".into(); // privacy:fake
+    db.write(|c| update(c, a.id, v, LATER)).unwrap();
+    db.write(|c| archive(c, a.id, LATER)).unwrap();
+    let log = db.read(|c| audit::for_target(c, "instructor", a.id)).unwrap();
+    let rows: Vec<(&str, &str)> = log.iter().map(|e| (e.action.as_str(), e.summary.as_str())).collect();
+    assert_eq!(
+        rows,
+        vec![
+            ("INSTRUCTOR_CREATE", "등록"),
+            ("INSTRUCTOR_UPDATE", "변경 항목: 구분 메모, 연락처"),
+            ("INSTRUCTOR_ARCHIVE", "보관"),
+        ]
     );
 }

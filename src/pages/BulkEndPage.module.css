@@ -1,0 +1,100 @@
+.filter {
+  width: 260px;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.tableWrap {
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  text-align: left;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.table tbody tr {
+  cursor: default;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.colCheck {
+  width: 36px;
+  text-align: center;
+}
+
+.rowOn td {
+  background: var(--primary-soft);
+}
+
+.rowBad td {
+  background: var(--error-soft);
+}
+
+.period {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.arrow {
+  color: var(--text-faint);
+  width: 1%;
+}
+
+.settings {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-5);
+  flex-wrap: wrap;
+}
+
+.reasons {
+  display: flex;
+  gap: var(--sp-4);
+  height: var(--control-h);
+  align-items: center;
+}
+
+.radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.applyRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.futureLine {
+  margin-bottom: var(--sp-2);
+  color: var(--warn-text);
+  font-weight: 700;
+}

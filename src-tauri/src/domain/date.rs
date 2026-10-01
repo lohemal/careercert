@@ -103,7 +103,14 @@ pub fn display_end(end: Option<NaiveDate>) -> String {
 
 /// 기간 한 줄 `2026.03.04 ~ 현재` / `2025.03.05 ~ 2026.02.06`.
 pub fn display_period(start: NaiveDate, end: Option<NaiveDate>) -> String {
-    format!("{} ~ {}", display(start), display_end(end))
+    let (from, to) = display_period_parts(start, end);
+    format!("{from} ~ {to}")
+}
+
+/// 기간의 두 쪽 (`2026.03.04`, `현재`). 증명서의 '부터 · 까지' 칸, 좁은 화면의 줄바꿈에 쓴다.
+/// `display_period` 도 이것을 지나므로 한 줄 표시와 두 쪽 표시가 어긋날 수 없다.
+pub fn display_period_parts(start: NaiveDate, end: Option<NaiveDate>) -> (String, String) {
+    (display(start), display_end(end))
 }
 
 // ---------------------------------------------------------------
@@ -113,6 +120,7 @@ pub fn display_period(start: NaiveDate, end: Option<NaiveDate>) -> String {
 /// 종료 칸에 적힌 "아직 근무 중" 이라는 말인가. 공백은 무시한다.
 ///
 /// 이 말들은 **날짜로 저장하지 않는다** — 가져오기가 종료일 NULL + 재직중으로 바꾼다.
+#[cfg_attr(not(test), allow(dead_code))] // Phase 8 엑셀 가져오기가 쓴다
 pub fn is_current_word(s: &str) -> bool {
     let t: String = s.chars().filter(|c| !c.is_whitespace()).collect();
     matches!(t.as_str(), "현재" | "재직중" | "재직" | "근무중")
@@ -132,6 +140,7 @@ pub fn is_current_word(s: &str) -> bool {
 ///   * 구분자를 섞은 것 (`2022.3-4`) — 실수일 가능성이 커서 추측하지 않는다
 ///   * 세 토막이 아닌 것 (`2022.3`), 월·일이 세 자리 이상, 숫자가 아닌 글자
 ///   * 없는 날짜 (`2022.02.30`, `2022.13.04`)
+#[cfg_attr(not(test), allow(dead_code))] // Phase 8 엑셀 가져오기가 쓴다
 pub fn parse_loose(s: &str) -> Result<NaiveDate, DateError> {
     let t = s.trim();
     if t.is_empty() {
@@ -191,6 +200,12 @@ pub fn parse_loose(s: &str) -> Result<NaiveDate, DateError> {
     let m: u32 = ms.parse().map_err(|_| DateError::Format)?;
     let d: u32 = ds.parse().map_err(|_| DateError::Format)?;
     make(y, m, d)
+}
+
+/// 시각 `YYYY-MM-DDTHH:MM:SS` 의 날짜. service 는 시각(`now`) 하나만 받고 오늘은 여기서 뽑는다 —
+/// 시험에서 시각을 고정하면 "오늘" 도 함께 고정된다.
+pub fn today_of(now: &str) -> Result<NaiveDate, DateError> {
+    parse_iso(now.get(0..10).unwrap_or(""))
 }
 
 fn make(y: i32, m: u32, d: u32) -> Result<NaiveDate, DateError> {

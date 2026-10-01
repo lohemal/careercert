@@ -1,0 +1,87 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-4);
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+.hintRow {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.note {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* 두세 개 중 하나 고르기 — 라디오를 버튼 모양으로 */
+.segment {
+  display: inline-flex;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+  height: var(--control-h);
+}
+
+.seg,
+.segOn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 14px;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg);
+}
+
+.seg + .seg,
+.seg + .segOn,
+.segOn + .seg {
+  border-left: 1px solid var(--border-strong);
+}
+
+.segOn {
+  background: var(--primary-soft);
+  color: var(--primary-text);
+}
+
+.seg input,
+.segOn input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.seg:focus-within,
+.segOn:focus-within {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--sp-1) var(--sp-4);
+  margin: 0;
+}
+
+.facts dt {
+  color: var(--text-muted);
+}
+
+.facts dd {
+  margin: 0;
+}

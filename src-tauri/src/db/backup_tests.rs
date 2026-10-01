@@ -138,5 +138,10 @@ fn 파일_이름으로_종류를_가린다() {
         Kind::of_file("before_migration_v1_20261001_080000.db"),
         Kind::BeforeMigration
     );
+    assert_eq!(
+        Kind::of_file("before_bulk_end_20261001_080000.db"),
+        Kind::BeforeBulkEnd
+    );
+    assert!(!Kind::BeforeBulkEnd.cleaned_up(), "큰 작업 직전 백업은 자동 정리하지 않는다");
     assert_eq!(Kind::of_file("careercert.db"), Kind::Other);
 }

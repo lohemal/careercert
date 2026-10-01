@@ -175,6 +175,11 @@ impl Career {
     pub fn period(&self) -> String {
         date::display_period(self.fields.start_date, self.fields.term.end_date())
     }
+
+    /// (`2026.03.04`, `현재`)
+    pub fn period_parts(&self) -> (String, String) {
+        date::display_period_parts(self.fields.start_date, self.fields.term.end_date())
+    }
 }
 
 /// 지도사항 제안 `방과후학교 {프로그램명}` (기존 명단이 거의 이렇게 적혀 있다).
@@ -300,6 +305,44 @@ pub fn end(current: &CareerFields, end_date: &str, reason: EndReason) -> AppResu
     let end_date = date_field("종료일", end_date)?;
     check_order(current.start_date, end_date)?;
     Ok(Term::Ended { end_date, reason })
+}
+
+/// 고친 항목 이름 (변경 기록용 — 값은 담지 않는다).
+pub fn changed_labels(old: &CareerFields, new: &CareerFields) -> Vec<&'static str> {
+    [
+        ("프로그램명", old.program_name != new.program_name),
+        ("직위", old.position != new.position),
+        ("지도사항", old.duty != new.duty),
+        ("시작일", old.start_date != new.start_date),
+        ("상태", old.term.status() != new.term.status()),
+        ("종료일", old.term.end_date() != new.term.end_date()),
+        ("종료 사유", old.term.reason() != new.term.reason()),
+        ("메모", old.memo != new.memo),
+    ]
+    .into_iter()
+    .filter(|(_, changed)| *changed)
+    .map(|(label, _)| label)
+    .collect()
+}
+
+/// 종료일이 오늘보다 뒤인가. 재직중이면 None.
+pub fn future_end(term: &Term, today: NaiveDate) -> Option<NaiveDate> {
+    term.end_date().filter(|d| *d > today)
+}
+
+/// 미래 종료일은 **막지 않되 확인을 받는다** (Phase 3 결정).
+///
+/// 계약 종료일이 미리 정해진 경우를 위해 허용한다. 확인 없이 들어오면 `FUTURE_END_UNCONFIRMED` —
+/// 화면은 이 오류를 받으면 확인 창을 띄우고 `confirm_future = true` 로 다시 보낸다.
+/// 규칙이 서버 쪽에 있으므로 화면이 확인을 빠뜨려도 저장되지 않는다.
+pub fn check_future(term: &Term, today: NaiveDate, confirmed: bool) -> AppResult<()> {
+    match future_end(term, today) {
+        Some(d) if !confirmed => Err(AppError::new(
+            "FUTURE_END_UNCONFIRMED",
+            format!("종료일이 오늘 이후입니다. {}로 종료 처리하시겠습니까?", date::display(d)),
+        )),
+        _ => Ok(()),
+    }
 }
 
 #[cfg(test)]

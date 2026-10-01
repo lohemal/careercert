@@ -61,13 +61,38 @@ pub fn get(conn: &Connection, id: i64) -> AppResult<Instructor> {
     find(conn, id)?.ok_or_else(not_found)
 }
 
+/// 어떤 강사를 보일까. 화면의 필터 [재직중 · 전체 · 보관] 과 같다.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum Scope {
+    /// 재직중 경력이 하나라도 있는 강사 (보관 제외)
+    Active,
+    /// 보관하지 않은 강사 전부
+    #[default]
+    All,
+    /// 보관한 강사만
+    Archived,
+    /// 보관 여부와 상관없이 전부 (화면 필터에는 없다)
+    Everything,
+}
+
+impl Scope {
+    fn code(self) -> &'static str {
+        match self {
+            Scope::Active => "ACTIVE",
+            Scope::All => "ALL",
+            Scope::Archived => "ARCHIVED",
+            Scope::Everything => "EVERYTHING",
+        }
+    }
+}
+
 /// 목록 조건.
 #[derive(Debug, Clone, Default)]
 pub struct Filter {
     /// 이름·구분 메모에 들어 있는 글자. 비우면 전체.
     pub query: String,
-    /// 보관한 강사도 보일까. 기본은 숨긴다.
-    pub include_archived: bool,
+    pub scope: Scope,
 }
 
 /// 목록 한 줄 — 강사와 경력 수.
@@ -86,14 +111,21 @@ pub struct Summary {
 pub fn search(conn: &Connection, filter: &Filter) -> AppResult<Vec<Summary>> {
     let q = filter.query.trim();
     let sql = format!(
-        "SELECT {cols},
-                (SELECT COUNT(*) FROM careers c WHERE c.instructor_id = i.id AND c.archived_at IS NULL),
-                (SELECT COUNT(*) FROM careers c WHERE c.instructor_id = i.id AND c.archived_at IS NULL
-                                                  AND c.status = 'ACTIVE')
-           FROM instructors i
-          WHERE (?1 = '' OR instr(i.name, ?1) > 0 OR instr(i.distinguisher, ?1) > 0)
-            AND (?2 OR i.archived_at IS NULL)
-          ORDER BY i.name, i.id",
+        "SELECT * FROM (
+            SELECT {cols},
+                   (SELECT COUNT(*) FROM careers c WHERE c.instructor_id = i.id AND c.archived_at IS NULL) AS n_all,
+                   (SELECT COUNT(*) FROM careers c WHERE c.instructor_id = i.id AND c.archived_at IS NULL
+                                                     AND c.status = 'ACTIVE') AS n_active
+              FROM instructors i
+             WHERE (?1 = '' OR instr(i.name, ?1) > 0 OR instr(i.distinguisher, ?1) > 0)
+         )
+          WHERE CASE ?2
+                  WHEN 'ACTIVE'   THEN archived_at IS NULL AND n_active > 0
+                  WHEN 'ALL'      THEN archived_at IS NULL
+                  WHEN 'ARCHIVED' THEN archived_at IS NOT NULL
+                  ELSE 1
+                END
+          ORDER BY name, id",
         cols = COLS
             .split(", ")
             .map(|c| format!("i.{c}"))
@@ -102,7 +134,7 @@ pub fn search(conn: &Connection, filter: &Filter) -> AppResult<Vec<Summary>> {
     );
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt
-        .query_map(params![q, filter.include_archived], |r| {
+        .query_map(params![q, filter.scope.code()], |r| {
             Ok(Summary {
                 instructor: from_row(r)?,
                 careers: r.get(9)?,

@@ -10,6 +10,7 @@
     "app": "tauri dev",
     "app:build": "tauri build",
     "app:sandbox": "tauri dev --config src-tauri/tauri.sandbox.conf.json",
+    "seed": "node scripts/seed-sandbox.mjs",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --lib",
     "test:scripts": "node --test \"scripts/*.test.mjs\"",
     "test": "npm run test:scripts && npm run test:rust",

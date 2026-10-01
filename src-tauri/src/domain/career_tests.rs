@@ -228,3 +228,36 @@ fn 화면에_쓸_이름과_기본값() {
         assert_eq!(EndReason::from_code(r.code()), Some(r));
     }
 }
+
+#[test]
+fn 미래_종료일은_확인을_받아야_저장된다() {
+    let today = ymd(2026, 10, 1);
+    let future = Term::Ended {
+        end_date: ymd(2026, 12, 31),
+        reason: EndReason::ContractEnd,
+    };
+    let e = check_future(&future, today, false).unwrap_err();
+    assert_eq!(e.code, "FUTURE_END_UNCONFIRMED");
+    assert_eq!(e.user_message, "종료일이 오늘 이후입니다. 2026.12.31로 종료 처리하시겠습니까?");
+    assert!(check_future(&future, today, true).is_ok());
+
+    let todays = Term::Ended {
+        end_date: today,
+        reason: EndReason::Terminated,
+    };
+    assert!(check_future(&todays, today, false).is_ok(), "오늘은 미래가 아니다");
+    assert!(check_future(&Term::Active, today, false).is_ok());
+}
+
+#[test]
+fn 바뀐_항목_이름만_돌려준다() {
+    let a = prepare(active()).unwrap();
+    let mut b = a.clone();
+    b.duty = "다른 지도사항".into();
+    b.term = Term::Ended {
+        end_date: ymd(2026, 10, 31),
+        reason: EndReason::ContractEnd,
+    };
+    assert_eq!(changed_labels(&a, &b), vec!["지도사항", "상태", "종료일", "종료 사유"]);
+    assert!(changed_labels(&a, &a).is_empty());
+}

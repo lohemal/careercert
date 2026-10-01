@@ -1,8 +1,11 @@
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Settings } from 'lucide-react'
 
 import { Button, Card, ErrorNotice, Notice, Page } from '@/components/ui'
+import { whoLabel } from '@/features/instructors/label'
 import type { AppInfo } from '@/ipc/app'
+import { dashboardApi } from '@/ipc/dashboard'
 import type { SettingsView } from '@/ipc/settings'
 import s from './DashboardPage.module.css'
 
@@ -13,14 +16,16 @@ interface Props {
 }
 
 /**
- * 대시보드 — 지금은 시작 결과와 학교 설정 상태만.
- * 최근 발급·강사 수 같은 요약은 해당 Phase 에서 더한다.
- * 자료 파일 경로는 업무 중 볼 정보가 아니라 설정 → 데이터 관리로 옮겼다.
+ * 대시보드 — 시작 결과 · 학교 설정 상태 · 강사 요약 · 확인 필요.
+ * "확인 필요" 는 지금 자료로 **객관적으로 가릴 수 있는 것만** 보이고, 아무것도 바꾸지 않는다(Rust `service::dashboard`).
+ * 최근 발급 요약은 발급 기능(Phase 6~7)과 함께 더한다.
  */
 export function DashboardPage({ info, settings, settingsError }: Props) {
   const navigate = useNavigate()
+  const overview = useQuery({ queryKey: ['dashboard'], queryFn: dashboardApi.overview })
   const missing = settings?.missing ?? []
   const school = settings?.settings
+  const o = overview.data
 
   return (
     <Page title="대시보드">
@@ -33,6 +38,7 @@ export function DashboardPage({ info, settings, settingsError }: Props) {
         </Notice>
       ))}
       <ErrorNotice error={settingsError} />
+      <ErrorNotice error={overview.error} />
 
       {settings && missing.length > 0 && (
         <Notice tone="warn">
@@ -49,18 +55,50 @@ export function DashboardPage({ info, settings, settingsError }: Props) {
         </Notice>
       )}
 
-      {school && missing.length === 0 && (
-        <Card title="학교 기본정보">
-          <dl className={s.facts}>
-            <dt>학교명</dt>
-            <dd>{school.schoolName}</dd>
-            <dt>발급자 표기</dt>
-            <dd>{school.issuerTitle}</dd>
-            <dt>담당</dt>
-            <dd>
-              {school.department} · {school.managerName} · {school.phone}
-            </dd>
-          </dl>
+      <div className={s.tiles}>
+        <button type="button" className={s.tile} onClick={() => navigate('/instructors')}>
+          <span className={s.tileLabel}>등록 강사</span>
+          <span className={s.tileValue}>{o ? `${o.instructors}명` : '—'}</span>
+          <span className={s.tileNote}>보관한 강사 제외</span>
+        </button>
+        <button type="button" className={s.tile} onClick={() => navigate('/instructors')}>
+          <span className={s.tileLabel}>재직중 경력</span>
+          <span className={s.tileValue}>{o ? `${o.activeCareers}건` : '—'}</span>
+          <span className={s.tileNote}>종료 처리하지 않은 경력</span>
+        </button>
+        {school && missing.length === 0 && (
+          <div className={s.tileWide}>
+            <span className={s.tileLabel}>학교 기본정보</span>
+            <span className={s.schoolName}>{school.schoolName}</span>
+            <span className={s.tileNote}>
+              {school.issuerTitle} · {school.department} · {school.managerName} · {school.phone}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {o && o.checks.length > 0 && (
+        <Card title="확인 필요" description="자료에서 확인해 볼 만한 것을 알려 드립니다. 프로그램이 저절로 고치지 않습니다.">
+          <div className={s.checks}>
+            {o.checks.map((c) => (
+              <section key={c.kind} className={s.check}>
+                <h3 className={s.checkTitle}>
+                  {c.title} <span className={s.count}>{c.items.length}</span>
+                </h3>
+                <p className={s.checkDesc}>{c.description}</p>
+                <ul className={s.items}>
+                  {c.items.map((it, n) => (
+                    <li key={`${it.instructorId}-${n}`}>
+                      <button type="button" className={s.link} onClick={() => navigate(`/instructors?id=${it.instructorId}`)}>
+                        {whoLabel({ name: it.instructorName, distinguisher: it.distinguisher })}
+                      </button>
+                      <span className={s.detail}>{it.detail}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
         </Card>
       )}
     </Page>

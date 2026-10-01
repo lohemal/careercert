@@ -48,7 +48,7 @@ pub fn settings_get(state: State<'_, AppState>) -> AppResult<SettingsView> {
 
 #[tauri::command]
 pub fn settings_save(state: State<'_, AppState>, input: SettingsInput) -> AppResult<SettingsView> {
-    let now = chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string();
+    let now = super::now();
     let saved = state.db.write(|c| repo::settings::save(c, input, &now))?;
     Ok(view(saved.settings, saved.issuer_filled))
 }

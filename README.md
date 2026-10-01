@@ -13,6 +13,7 @@ npm install
 npm run hooks:install      # 커밋 전 개인정보 검사 훅 (처음 한 번)
 npm run app                # 실제 자료 폴더로 실행
 npm run app:sandbox        # 연습용 자료 폴더로 실행 (실제 자료와 섞이지 않음)
+npm run seed               # 연습용 자료에 가상 강사·경력 넣기 (-- --reset 로 갈아엎기, 실제 자료에는 쓰지 않음)
 ```
 
 | 검사 | 명령 |

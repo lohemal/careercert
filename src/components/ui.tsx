@@ -1,5 +1,12 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
-import { AlertTriangle, CheckCircle2, Info, XCircle, type LucideIcon } from 'lucide-react'
+import { useEffect } from 'react'
+import type {
+  ButtonHTMLAttributes,
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from 'react'
+import { AlertTriangle, CheckCircle2, Info, X, XCircle, type LucideIcon } from 'lucide-react'
 
 import { errorDetail, errorMessage } from '@/ipc/invoke'
 import s from './ui.module.css'
@@ -124,6 +131,14 @@ export function Input({ className, ...rest }: InputHTMLAttributes<HTMLInputEleme
   return <input className={cx(s.input, className)} {...rest} />
 }
 
+export function Select({ className, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {
+  return <select className={cx(s.input, className)} {...rest} />
+}
+
+export function Textarea({ className, ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return <textarea className={cx(s.input, s.textarea, className)} {...rest} />
+}
+
 /* ---------- Badge ---------- */
 
 export type Tone = 'success' | 'info' | 'warn' | 'error' | 'neutral'
@@ -182,5 +197,58 @@ export function ErrorNotice({ error }: { error: unknown }) {
     <Notice tone="error" detail={errorDetail(error)}>
       {errorMessage(error)}
     </Notice>
+  )
+}
+
+/* ---------- Modal ---------- */
+
+/** 열린 창 차례 — Esc 는 맨 위 창만 닫는다(창 위에 확인 창이 뜬 경우). */
+const openModals: symbol[] = []
+
+/** 가운데 창. Esc·바깥 누름으로 닫힌다(`busy` 동안은 닫히지 않는다). */
+export function Modal({
+  title,
+  onClose,
+  footer,
+  busy = false,
+  width = 520,
+  children,
+}: {
+  title: string
+  onClose: () => void
+  footer?: ReactNode
+  busy?: boolean
+  width?: number
+  children: ReactNode
+}) {
+  useEffect(() => {
+    const me = Symbol('modal')
+    openModals.push(me)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !busy && openModals[openModals.length - 1] === me) {
+        e.stopPropagation()
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      openModals.splice(openModals.indexOf(me), 1)
+    }
+  }, [onClose, busy])
+
+  return (
+    <div className={s.scrim} onMouseDown={(e) => e.target === e.currentTarget && !busy && onClose()}>
+      <div className={s.modal} role="dialog" aria-modal="true" aria-label={title} style={{ width }}>
+        <header className={s.modalHead}>
+          <h2 className={s.modalTitle}>{title}</h2>
+          <button type="button" className={s.iconBtn} onClick={onClose} disabled={busy} aria-label="닫기">
+            <X size={18} />
+          </button>
+        </header>
+        <div className={s.modalBody}>{children}</div>
+        {footer && <footer className={s.modalFoot}>{footer}</footer>}
+      </div>
+    </div>
   )
 }

@@ -77,6 +77,20 @@ pub fn prepare(raw: InstructorInput) -> AppResult<InstructorFields> {
     Ok(v)
 }
 
+/// 고친 항목 이름 (변경 기록용 — 값은 담지 않는다).
+pub fn changed_labels(old: &Instructor, new: &InstructorFields) -> Vec<&'static str> {
+    [
+        ("이름", old.name != new.name),
+        ("구분 메모", old.distinguisher != new.distinguisher),
+        ("연락처", old.phone != new.phone),
+        ("메모", old.memo != new.memo),
+    ]
+    .into_iter()
+    .filter(|(_, changed)| *changed)
+    .map(|(label, _)| label)
+    .collect()
+}
+
 #[cfg(test)]
 #[path = "instructor_tests.rs"]
 mod instructor_tests;

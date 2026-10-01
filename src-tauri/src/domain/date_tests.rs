@@ -20,6 +20,13 @@ fn 종료된_기간은_종료일로_표시한다() {
 }
 
 #[test]
+fn 기간의_두_쪽은_한_줄_표시와_같다() {
+    let (from, to) = display_period_parts(ymd(2026, 3, 4), None);
+    assert_eq!((from.as_str(), to.as_str()), ("2026.03.04", "현재"));
+    assert_eq!(format!("{from} ~ {to}"), display_period(ymd(2026, 3, 4), None));
+}
+
+#[test]
 fn 날짜는_0을_채워_점으로_표시한다() {
     assert_eq!(display(ymd(2022, 3, 4)), "2022.03.04");
     assert_eq!(display_end(Some(ymd(2023, 12, 31))), "2023.12.31");
@@ -133,4 +140,10 @@ fn 현재라는_말은_날짜가_아니라_재직중_표시다() {
     for s in ["", "2022.3.4.", "현재까지", "퇴직"] {
         assert!(!is_current_word(s), "{s}");
     }
+}
+
+#[test]
+fn 시각에서_오늘을_뽑는다() {
+    assert_eq!(today_of("2026-10-01T09:00:00"), Ok(ymd(2026, 10, 1)));
+    assert!(today_of("").is_err());
 }

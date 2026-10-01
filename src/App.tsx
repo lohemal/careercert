@@ -4,7 +4,9 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/components/AppShell'
 import { appApi } from '@/ipc/app'
 import { errorDetail, errorMessage } from '@/ipc/invoke'
+import { BulkEndPage } from '@/pages/BulkEndPage'
 import { DashboardPage } from '@/pages/DashboardPage'
+import { InstructorsPage } from '@/pages/InstructorsPage'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { settingsApi } from '@/ipc/settings'
@@ -55,16 +57,8 @@ export function App() {
             path="/dashboard"
             element={<DashboardPage info={info.data} settings={settings.data} settingsError={settings.error} />}
           />
-          <Route
-            path="/instructors"
-            element={
-              <PlaceholderPage
-                title="강사관리"
-                phase="Phase 2~3"
-                description="강사 검색, 경력 등록·수정·종료 처리, 학년도 말 일괄 종료(선택 → 미리보기 → 승인)."
-              />
-            }
-          />
+          <Route path="/instructors" element={<InstructorsPage />} />
+          <Route path="/instructors/bulk-end" element={<BulkEndPage />} />
           <Route
             path="/issue"
             element={

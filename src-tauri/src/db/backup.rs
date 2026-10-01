@@ -28,6 +28,8 @@ pub enum Kind {
     Manual,
     /// 자료 구조를 바꾸기 직전
     BeforeMigration,
+    /// 재직중 경력 일괄 종료 직전
+    BeforeBulkEnd,
     /// 이름으로 가릴 수 없는 파일
     Other,
 }
@@ -38,6 +40,7 @@ impl Kind {
             Kind::Auto => "AUTO",
             Kind::Manual => "MANUAL",
             Kind::BeforeMigration => "BEFORE_MIGRATION",
+            Kind::BeforeBulkEnd => "BEFORE_BULK_END",
             Kind::Other => "OTHER",
         }
     }
@@ -48,6 +51,7 @@ impl Kind {
             Kind::Auto => "auto_",
             Kind::Manual => "manual_",
             Kind::BeforeMigration => "before_migration_",
+            Kind::BeforeBulkEnd => "before_bulk_end_",
             Kind::Other => "",
         }
     }
@@ -59,7 +63,7 @@ impl Kind {
 
     /// 파일 이름으로 종류를 가린다.
     pub fn of_file(name: &str) -> Kind {
-        for k in [Kind::Auto, Kind::Manual, Kind::BeforeMigration] {
+        for k in [Kind::Auto, Kind::Manual, Kind::BeforeMigration, Kind::BeforeBulkEnd] {
             if name.starts_with(k.prefix()) {
                 return k;
             }

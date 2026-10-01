@@ -9,7 +9,9 @@
 //!     그 강사의 경력을 고치는 것도 막는다. 숨겨 둔 자료가 모르는 사이에 바뀌지 않게.
 //!   * 이미 보관된 것을 다시 보관하거나, 보관되지 않은 것을 해제하면 오류로 알린다.
 
+pub mod bulk_end;
 pub mod career;
+pub mod dashboard;
 pub mod instructor;
 
 /// 보관 상태가 맞지 않을 때의 오류들.
