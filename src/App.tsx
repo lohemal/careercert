@@ -6,10 +6,14 @@ import { appApi } from '@/ipc/app'
 import { errorDetail, errorMessage } from '@/ipc/invoke'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
+import { SettingsPage } from '@/pages/SettingsPage'
+import { settingsApi } from '@/ipc/settings'
 import s from './App.module.css'
 
 export function App() {
   const info = useQuery({ queryKey: ['app-info'], queryFn: appApi.info })
+  // 사이드바·대시보드·설정이 같은 값을 본다 — 설정에서 저장하면 셋이 함께 바뀐다
+  const settings = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
 
   if (info.isLoading) {
     return (
@@ -38,8 +42,19 @@ export function App() {
   return (
     <HashRouter>
       <Routes>
-        <Route element={<AppShell appVersion={info.data.appVersion} sandbox={info.data.sandbox} />}>
-          <Route path="/dashboard" element={<DashboardPage info={info.data} />} />
+        <Route
+          element={
+            <AppShell
+              appVersion={info.data.appVersion}
+              sandbox={info.data.sandbox}
+              schoolName={settings.data?.settings.schoolName}
+            />
+          }
+        >
+          <Route
+            path="/dashboard"
+            element={<DashboardPage info={info.data} settings={settings.data} settingsError={settings.error} />}
+          />
           <Route
             path="/instructors"
             element={
@@ -70,16 +85,7 @@ export function App() {
               />
             }
           />
-          <Route
-            path="/settings"
-            element={
-              <PlaceholderPage
-                title="설정"
-                phase="Phase 1 · 8"
-                description="학교 기본정보(Phase 1), 엑셀 가져오기·백업·복원(Phase 8)."
-              />
-            }
-          />
+          <Route path="/settings" element={<SettingsPage info={info.data} />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

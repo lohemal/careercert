@@ -158,3 +158,8 @@
   padding: 2px 10px;
   white-space: nowrap;
 }
+
+.brandUnset {
+  color: var(--warn-text);
+  font-weight: 600;
+}

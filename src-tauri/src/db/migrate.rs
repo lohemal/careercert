@@ -23,11 +23,18 @@ pub(crate) struct Migration {
     pub sql: &'static str,
 }
 
-pub(crate) const MIGRATIONS: &[Migration] = &[Migration {
-    version: 1,
-    name: "001_init",
-    sql: include_str!("../../migrations/001_init.sql"),
-}];
+pub(crate) const MIGRATIONS: &[Migration] = &[
+    Migration {
+        version: 1,
+        name: "001_init",
+        sql: include_str!("../../migrations/001_init.sql"),
+    },
+    Migration {
+        version: 2,
+        name: "002_school_settings",
+        sql: include_str!("../../migrations/002_school_settings.sql"),
+    },
+];
 
 pub fn latest_version() -> i32 {
     MIGRATIONS.iter().map(|m| m.version).max().unwrap_or(0)

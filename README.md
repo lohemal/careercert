@@ -19,7 +19,8 @@ npm run app:sandbox        # 연습용 자료 폴더로 실행 (실제 자료와
 |---|---|
 | 화면 타입 검사·빌드 | `npm run build` |
 | Rust 시험 | `npm run test:rust` |
-| 개인정보 검사 규칙 시험 | `npm run test:privacy` |
+| 개인정보 검사 규칙 · 하드코딩 검사 | `npm run test:scripts` |
+| 전부 | `npm test` |
 | 저장소 전체 개인정보 검사 (릴리스 전 필수) | `npm run check:privacy -- --all` |
 
 자료 위치

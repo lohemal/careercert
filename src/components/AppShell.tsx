@@ -42,9 +42,11 @@ const MENU: MenuGroup[] = [
 interface Props {
   appVersion: string
   sandbox: boolean
+  /** 설정에 저장된 학교명. 비어 있으면 미설정으로 보인다 */
+  schoolName: string | undefined
 }
 
-export function AppShell({ appVersion, sandbox }: Props) {
+export function AppShell({ appVersion, sandbox, schoolName }: Props) {
   return (
     <div className={s.shell}>
       <aside className={s.sidebar}>
@@ -54,8 +56,14 @@ export function AppShell({ appVersion, sandbox }: Props) {
           </div>
           <div className={s.brandText}>
             <span className={s.brandTitle}>경력증명서 발급</span>
-            {/* 학교 이름은 Phase 1 설정에서 온다 — 코드에 적지 않는다 */}
-            <span className={s.brandSub}>학교 미설정</span>
+            {/* 학교 이름은 설정에서 온다 — 코드에 적지 않는다 */}
+            {schoolName ? (
+              <span className={s.brandSub} title={schoolName}>
+                {schoolName}
+              </span>
+            ) : (
+              <span className={`${s.brandSub} ${s.brandUnset}`}>학교 미설정</span>
+            )}
           </div>
         </div>
 

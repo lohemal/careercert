@@ -11,8 +11,9 @@
     "app:build": "tauri build",
     "app:sandbox": "tauri dev --config src-tauri/tauri.sandbox.conf.json",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --lib",
+    "test:scripts": "node --test \"scripts/*.test.mjs\"",
+    "test": "npm run test:scripts && npm run test:rust",
     "check:privacy": "node scripts/check-privacy.mjs",
-    "test:privacy": "node --test scripts/check-privacy.test.mjs",
     "hooks:install": "git config core.hooksPath .githooks"
   },
   "dependencies": {

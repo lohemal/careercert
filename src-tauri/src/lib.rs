@@ -3,11 +3,15 @@
 //! 층 나눔 (설계안 §3)
 //!   commands/  Tauri 에만 묶인 얇은 층 — 입력 받기 → 아래 층 호출 → 결과
 //!   db/        연결 · 마이그레이션 · 백업
-//!   (Phase 2 이후) domain/ · repo/ · service/ · render/ · print/ · crypto/
+//!   domain/    업무 규칙 (DB·Tauri 를 모름)
+//!   repo/      SQL
+//!   (이후 Phase) service/ · render/ · print/ · crypto/
 
 mod commands;
 mod db;
+mod domain;
 pub mod error;
+mod repo;
 
 use std::sync::{Arc, Mutex};
 
@@ -85,7 +89,11 @@ pub fn run() {
             });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![commands::app::app_info])
+        .invoke_handler(tauri::generate_handler![
+            commands::app::app_info,
+            commands::settings::settings_get,
+            commands::settings::settings_save,
+        ])
         .run(tauri::generate_context!())
         .expect("경력증명서 발급 시스템을 시작하지 못했습니다.");
 }
