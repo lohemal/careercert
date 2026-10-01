@@ -132,7 +132,7 @@ export function BulkEndPage() {
       {/* ---------- 1. 대상 고르기 ---------- */}
       <Card
         title={`1. 종료할 경력 고르기 — ${picked.size}건 선택`}
-        description="처음에는 아무것도 선택되어 있지 않습니다. 끝낼 경력만 직접 체크하세요."
+        description="처음에는 아무것도 선택되어 있지 않습니다. 끝낼 경력만 직접 체크하세요. 예정 종료일은 참고용이며 종료일로 자동 적용되지 않습니다."
         actions={
           <Input
             className={s.filter}
@@ -162,6 +162,7 @@ export function BulkEndPage() {
                   <th>강사</th>
                   <th>프로그램명</th>
                   <th>기간</th>
+                  <th title="계약서의 예정 종료일 — 참고만 합니다. 종료일은 아래에서 직접 정합니다.">예정 종료일 (참고)</th>
                 </tr>
               </thead>
               <tbody>
@@ -173,6 +174,7 @@ export function BulkEndPage() {
                     <td>{whoLabel({ name: c.instructorName, distinguisher: c.distinguisher })}</td>
                     <td>{c.programName}</td>
                     <td className={s.period}>{c.period}</td>
+                    <td className={c.plannedEndPassed ? s.plannedPassed : s.period}>{c.plannedEndLabel ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>

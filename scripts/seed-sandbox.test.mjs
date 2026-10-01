@@ -40,6 +40,8 @@ test('가상 자료는 요구한 상황을 모두 담는다', () => {
   assert.ok(names.some((n, i) => names.indexOf(n) !== i), '동명이인')
   assert.ok(people.some((p) => p.archived), '보관한 강사')
   assert.ok(careers.some(({ c }) => c[4] === true), '보관한 경력')
+  assert.ok(careers.some(({ c }) => c[2] === null && c[5] && c[5] < `${y}-10-01`), '예정 종료일이 지난 재직중 경력')
+  assert.ok(careers.some(({ c }) => c[3] === 'TERMINATED' && c[5]), '중도해지 + 예정 종료일')
   // DB 규칙과 어긋나는 값이 없다: 재직중은 사유 없음, 종료는 사유 있음, 종료 ≥ 시작
   for (const { c } of careers) {
     const [, start, end, reason] = c
@@ -49,5 +51,6 @@ test('가상 자료는 요구한 상황을 모두 담는다', () => {
       assert.ok(end >= start, `${start} ~ ${end}`)
     }
     assert.match(start, /^\d{4}-\d{2}-\d{2}$/)
+    if (c[5]) assert.ok(c[5] >= start, `예정 ${c[5]} ≥ 시작 ${start}`)
   }
 })

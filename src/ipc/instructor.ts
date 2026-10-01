@@ -16,6 +16,8 @@ export interface Instructor {
 export interface InstructorRow extends Instructor {
   careers: number
   activeCareers: number
+  /** 보관하지 않은 경력의 프로그램명 (가나다순, 겹치지 않게) */
+  programs: string[]
   /** 지금 목록에 같은 이름이 또 있다 */
   sameName: boolean
 }

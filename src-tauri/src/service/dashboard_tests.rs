@@ -35,6 +35,7 @@ fn add(db: &Db, owner: i64, program: &str, start: &str, end: Option<&str>) -> i6
                 status: if end.is_some() { CareerStatus::Ended } else { CareerStatus::Active },
                 end_date: end.map(String::from),
                 end_reason: end.map(|_| EndReason::ContractEnd),
+                planned_end_date: None,
                 memo: "".into(),
             },
             true,
@@ -115,4 +116,55 @@ fn 보관한_것은_보지_않는다() {
     let o = db.read(|c| overview(c, NOW)).unwrap();
     assert!(o.checks.is_empty(), "{:?}", kinds(&o));
     assert_eq!((o.instructors, o.active_careers), (1, 0));
+}
+
+fn add_planned(db: &Db, owner: i64, start: &str, planned: &str) -> i64 {
+    db.write(|c| {
+        career::create(
+            c,
+            owner,
+            CareerInput {
+                program_name: "마술".into(),
+                position: "강사".into(),
+                duty: "방과후학교 마술".into(),
+                start_date: start.into(),
+                status: CareerStatus::Active,
+                end_date: None,
+                end_reason: None,
+                planned_end_date: Some(planned.into()),
+                memo: "".into(),
+            },
+            false,
+            NOW,
+        )
+    })
+    .unwrap()
+    .id
+}
+
+#[test]
+fn 예정_종료일이_지난_재직중_경력을_알리고_아무것도_바꾸지_않는다() {
+    let db = Db::memory();
+    let a = who(&db, "김가람", "");
+    let late = add_planned(&db, a, "2025-03-05", "2026-02-06"); // 오늘(2026-10-01) 보다 앞
+    let b = who(&db, "이나래", "");
+    add_planned(&db, b, "2026-03-04", "2027-02-05"); // 아직
+
+    let o = db.read(|c| overview(c, NOW)).unwrap();
+    assert_eq!(kinds(&o), vec!["PLANNED_END_PASSED"]);
+    assert_eq!(o.checks[0].description, "예정 종료일이 지났습니다. 종료 여부를 확인하세요. 프로그램이 저절로 종료하지 않습니다.");
+    assert_eq!(o.checks[0].items.len(), 1);
+    assert_eq!(o.checks[0].items[0].detail, "마술 · 2025.03.05 ~ 현재 · 예정 종료일 2026.02.06");
+    // 알리기만 한다
+    assert_eq!(db.read(|c| career::get(c, late)).unwrap().fields.term, crate::domain::career::Term::Active);
+    assert_eq!(o.active_careers, 2);
+}
+
+#[test]
+fn 이미_종료한_경력은_예정_종료일이_지나도_알리지_않는다() {
+    let db = Db::memory();
+    let a = who(&db, "김가람", "");
+    let id = add_planned(&db, a, "2025-03-05", "2026-02-06");
+    db.write(|c| career::end(c, id, "2026-02-06", EndReason::ContractEnd, false, NOW)).unwrap();
+    assert!(db.read(|c| overview(c, NOW)).unwrap().checks.is_empty());
 }

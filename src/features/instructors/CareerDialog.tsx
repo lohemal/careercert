@@ -40,6 +40,7 @@ export function CareerDialog({ instructorId, career, defaultPosition, onClose }:
     status: career?.status ?? 'ACTIVE',
     endDate: career?.endDate ?? null,
     endReason: career?.endReason ?? null,
+    plannedEndDate: career?.plannedEndDate ?? null,
     memo: career?.memo ?? '',
   })
 
@@ -130,6 +131,13 @@ export function CareerDialog({ instructorId, career, defaultPosition, onClose }:
         </Field>
         <Field label="시작일">
           <Input type="date" value={form.startDate} onChange={(e) => set('startDate', e.target.value)} />
+        </Field>
+        <Field label="예정 종료일" hint="계약서의 예정 종료일 (선택). 관리용이며 증명서 기간에는 쓰지 않습니다. 이 날이 지나도 저절로 종료되지 않습니다.">
+          <Input
+            type="date"
+            value={form.plannedEndDate ?? ''}
+            onChange={(e) => set('plannedEndDate', e.target.value || null)}
+          />
         </Field>
         <Field label="상태">
           <div className={s.segment} role="radiogroup">

@@ -14,6 +14,7 @@ mod domain;
 pub mod error;
 mod repo;
 mod service;
+mod webview;
 
 use std::sync::{Arc, Mutex};
 
@@ -28,6 +29,8 @@ pub struct AppState {
     pub sandbox: bool,
     /// 시작할 때 있었던 일 (무결성·자동 백업). 화면이 한 번 보여 준다.
     pub startup: Mutex<Vec<StartupNote>>,
+    /// WebView2 입력 자동완성 저장을 껐는가 (설정 → 데이터 관리가 보여 준다)
+    pub autofill_off: webview::AutofillState,
 }
 
 impl AppState {
@@ -84,10 +87,14 @@ pub fn run() {
                 }
             }
 
+            let autofill_off = webview::AutofillState::default();
+            webview::disable_autofill(app, autofill_off.clone());
+
             app.manage(AppState {
                 db: Arc::new(db),
                 sandbox,
                 startup: Mutex::new(notes),
+                autofill_off,
             });
             Ok(())
         })
@@ -111,6 +118,9 @@ pub fn run() {
             commands::career::career_archive,
             commands::career::career_unarchive,
             commands::career::career_hints,
+            // 증명서 작성 (읽기만 — 발급 기록 저장은 Phase 6)
+            commands::certificate::certificate_choices,
+            commands::certificate::certificate_prepare,
             // 일괄 종료
             commands::bulk_end::bulk_end_candidates,
             commands::bulk_end::bulk_end_preview,

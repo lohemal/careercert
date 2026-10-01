@@ -50,6 +50,7 @@ pub struct InstructorRow {
     /// 보관하지 않은 경력 수
     pub careers: i64,
     pub active_careers: i64,
+    pub programs: Vec<String>,
     /// 지금 목록에 같은 이름이 또 있다 — 화면이 구분 메모를 눈에 띄게 보인다
     pub same_name: bool,
 }
@@ -64,6 +65,7 @@ fn rows(list: Vec<Summary>) -> Vec<InstructorRow> {
             same_name: count[&s.instructor.name] > 1,
             careers: s.careers,
             active_careers: s.active_careers,
+            programs: s.programs,
             instructor: s.instructor.into(),
         })
         .collect()

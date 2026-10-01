@@ -298,6 +298,14 @@
   white-space: nowrap;
 }
 
+.planned {
+  display: block;
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .badges {
   display: inline-flex;
   flex-wrap: wrap;

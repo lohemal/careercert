@@ -13,7 +13,8 @@
     "seed": "node scripts/seed-sandbox.mjs",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --lib",
     "test:scripts": "node --test \"scripts/*.test.mjs\"",
-    "test": "npm run test:scripts && npm run test:rust",
+    "test:ui": "node --test \"src/**/*.test.ts\"",
+    "test": "npm run test:scripts && npm run test:ui && npm run test:rust",
     "check:privacy": "node scripts/check-privacy.mjs",
     "hooks:install": "git config core.hooksPath .githooks"
   },

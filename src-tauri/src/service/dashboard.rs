@@ -10,7 +10,8 @@ use chrono::NaiveDate;
 use rusqlite::Connection;
 
 use super::career::today;
-use crate::domain::career::{Career, Term};
+use crate::domain::career::{planned_end_passed, Career, Term};
+use crate::domain::date;
 use crate::error::AppResult;
 use crate::repo::career as career_repo;
 
@@ -25,7 +26,7 @@ pub struct CheckItem {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Check {
-    /// DUPLICATE_NAME · ACTIVE_STARTS_LATER · ENDS_LATER · OVERLAP
+    /// PLANNED_END_PASSED · DUPLICATE_NAME · ACTIVE_STARTS_LATER · ENDS_LATER · OVERLAP
     pub kind: &'static str,
     pub title: &'static str,
     pub description: &'static str,
@@ -90,11 +91,17 @@ pub fn overview(conn: &Connection, now: &str) -> AppResult<Overview> {
         .map(|id| item(*id, format!("같은 이름 {}명", by_name[who[id].name.as_str()].len())))
         .collect();
 
+    let mut planned_passed = Vec::new();
     let mut starts_later = Vec::new();
     let mut ends_later = Vec::new();
     let mut overlap = Vec::new();
     for (id, list) in &careers {
         for c in list {
+            // 0) 재직중인데 예정 종료일이 지났다 — 종료 처리를 잊었을 수 있다 (저절로 끝내지 않는다)
+            if planned_end_passed(&c.fields, today) {
+                let planned = c.fields.planned_end_date.map(date::display).unwrap_or_default();
+                planned_passed.push(item(*id, format!("{} · 예정 종료일 {planned}", line(c))));
+            }
             // 2) 시작일이 오늘 이후인 재직중 경력
             if c.fields.term == Term::Active && c.fields.start_date > today {
                 starts_later.push(item(*id, line(c)));
@@ -117,6 +124,12 @@ pub fn overview(conn: &Connection, now: &str) -> AppResult<Overview> {
     }
 
     let checks = [
+        Check {
+            kind: "PLANNED_END_PASSED",
+            title: "예정 종료일이 지난 재직중 경력",
+            description: "예정 종료일이 지났습니다. 종료 여부를 확인하세요. 프로그램이 저절로 종료하지 않습니다.",
+            items: planned_passed,
+        },
         Check {
             kind: "DUPLICATE_NAME",
             title: "동명이인 구분 메모 없음",

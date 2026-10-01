@@ -152,6 +152,7 @@ fn 필터는_재직중_전체_보관으로_나뉜다() {
         status,
         end_date: end.map(String::from),
         end_reason: end.map(|_| crate::domain::career::EndReason::ContractEnd),
+        planned_end_date: None,
         memo: "".into(),
     };
     db.write(|c| crate::service::career::create(c, working.id, career(CareerStatus::Active, None), false, NOW))
@@ -196,4 +197,37 @@ fn 강사_변경_기록에는_항목_이름만_남는다() {
             ("INSTRUCTOR_ARCHIVE", "보관"),
         ]
     );
+}
+
+#[test]
+fn 목록에_프로그램명을_겹치지_않게_붙인다() {
+    use crate::domain::career::{CareerInput, CareerStatus};
+    let db = Db::memory();
+    let a = db.write(|c| create(c, input("김가람", ""), NOW)).unwrap();
+    for (program, start) in [("마술", "2024-03-08"), ("과학", "2025-03-05"), ("마술", "2026-03-04")] {
+        db.write(|c| {
+            crate::service::career::create(
+                c,
+                a.id,
+                CareerInput {
+                    program_name: program.into(),
+                    position: "강사".into(),
+                    duty: format!("방과후학교 {program}"),
+                    start_date: start.into(),
+                    status: CareerStatus::Active,
+                    end_date: None,
+                    end_reason: None,
+                    planned_end_date: None,
+                    memo: "".into(),
+                },
+                false,
+                NOW,
+            )
+        })
+        .unwrap();
+    }
+    db.write(|c| create(c, input("박하늘", ""), NOW)).unwrap();
+    let list = db.read(|c| search(c, &filter("", false))).unwrap();
+    assert_eq!(list[0].programs, vec!["과학", "마술"]);
+    assert!(list[1].programs.is_empty(), "경력이 없으면 빈 목록");
 }

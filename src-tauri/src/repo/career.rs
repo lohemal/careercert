@@ -7,7 +7,8 @@ use crate::domain::date;
 use crate::error::{AppError, AppResult};
 
 const COLS: &str = "id, uuid, instructor_id, program_name, position, duty, start_date, end_date,
-                    status, end_reason, import_id, memo, archived_at, created_at, updated_at";
+                    status, end_reason, import_id, memo, archived_at, created_at, updated_at,
+                    planned_end_date";
 
 fn from_row(r: &Row<'_>) -> rusqlite::Result<Career> {
     let start: String = r.get(6)?;
@@ -23,6 +24,11 @@ fn from_row(r: &Row<'_>) -> rusqlite::Result<Career> {
         )
     };
     let start_date = date::parse_iso(&start).map_err(|_| bad("시작일"))?;
+    let planned: Option<String> = r.get(15)?;
+    let planned_end_date = match planned {
+        None => None,
+        Some(p) => Some(date::parse_iso(&p).map_err(|_| bad("예정 종료일"))?),
+    };
     let term = Term::from_columns(&status, end.as_deref(), reason.as_deref()).ok_or_else(|| bad("상태"))?;
     Ok(Career {
         id: r.get(0)?,
@@ -34,6 +40,7 @@ fn from_row(r: &Row<'_>) -> rusqlite::Result<Career> {
             duty: r.get(5)?,
             start_date,
             term,
+            planned_end_date,
             memo: r.get(11)?,
         },
         import_id: r.get(10)?,
@@ -63,8 +70,9 @@ pub fn insert(
     let (status, end_date, reason) = term_cols(&f.term);
     conn.execute(
         "INSERT INTO careers (uuid, instructor_id, program_name, position, duty, start_date,
-                              end_date, status, end_reason, import_id, memo, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12)",
+                              end_date, status, end_reason, import_id, memo, created_at, updated_at,
+                              planned_end_date)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12, ?13)",
         params![
             uuid::Uuid::new_v4().to_string(),
             instructor_id,
@@ -78,6 +86,7 @@ pub fn insert(
             import_id,
             f.memo,
             now,
+            f.planned_end_date.map(date::to_iso),
         ],
     )?;
     Ok(conn.last_insert_rowid())
@@ -89,7 +98,8 @@ pub fn update(conn: &Connection, id: i64, f: &CareerFields, now: &str) -> AppRes
     let n = conn.execute(
         "UPDATE careers
             SET program_name = ?2, position = ?3, duty = ?4, start_date = ?5,
-                end_date = ?6, status = ?7, end_reason = ?8, memo = ?9, updated_at = ?10
+                end_date = ?6, status = ?7, end_reason = ?8, memo = ?9, updated_at = ?10,
+                planned_end_date = ?11
           WHERE id = ?1",
         params![
             id,
@@ -102,6 +112,7 @@ pub fn update(conn: &Connection, id: i64, f: &CareerFields, now: &str) -> AppRes
             reason,
             f.memo,
             now,
+            f.planned_end_date.map(date::to_iso),
         ],
     )?;
     expect_one(n)

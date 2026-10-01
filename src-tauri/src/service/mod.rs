@@ -11,6 +11,7 @@
 
 pub mod bulk_end;
 pub mod career;
+pub mod certificate;
 pub mod dashboard;
 pub mod instructor;
 

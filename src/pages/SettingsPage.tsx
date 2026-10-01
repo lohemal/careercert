@@ -249,6 +249,14 @@ export function SettingsPage({ info }: Props) {
           <dd>
             v{info.schemaVersion} (프로그램 지원 v{info.latestSchemaVersion})
           </dd>
+          <dt>입력 자동완성 저장</dt>
+          <dd>
+            {info.autofillOff === true
+              ? '꺼짐 — 입력한 주민번호·주소가 화면 엔진(WebView2)에 저장되지 않습니다'
+              : info.autofillOff === false
+                ? <Badge tone="error">끄지 못했습니다 — 프로그램을 다시 시작해 주세요</Badge>
+                : '확인 중'}
+          </dd>
           <dt>마지막 저장</dt>
           <dd>{saved.updatedAt ? stampLabel(saved.updatedAt) : '아직 저장하지 않음'}</dd>
         </dl>

@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url'
 export const SANDBOX_DIR = 'kr.school.careercert.sandbox'
 export const DB_FILE = 'careercert.db'
 const APP_ID = 'kr.school.careercert'
-const MIN_SCHEMA = 4
+const MIN_SCHEMA = 5
 
 /** `%APPDATA%\kr.school.careercert.sandbox\careercert.db` */
 export function sandboxDbPath(env = process.env) {
@@ -42,7 +42,7 @@ const stamp = (d) => `${iso(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pa
 
 /**
  * 가상 자료. y = 올해.
- * 경력: [프로그램, 시작, 종료|null(재직중), 사유|null, 보관?]
+ * 경력: [프로그램, 시작, 종료|null(재직중), 사유|null, 보관?, 예정 종료일?]
  */
 export function plan(y) {
   const year = (from, to, program, reason = 'CONTRACT_END') => [program, `${from}-03-04`, `${to}-02-10`, reason]
@@ -52,25 +52,25 @@ export function plan(y) {
       careers: [
         year(y - 4, y - 3, '마술'), year(y - 3, y - 2, '마술'), year(y - 2, y - 1, '마술'),
         ['마술', `${y - 1}-03-05`, `${y}-02-06`, 'CONTRACT_END'],
-        ['마술', `${y}-03-04`, null, null],
+        ['마술', `${y}-03-04`, null, null, false, `${y + 1}-02-05`],
       ],
     },
-    { name: '이나래', distinguisher: '', note: '일반 강사', careers: [['바둑', `${y}-03-04`, null, null]] },
+    { name: '이나래', distinguisher: '', note: '일반 강사', careers: [['바둑', `${y}-03-04`, null, null, false, `${y + 1}-02-05`]] },
     {
       name: '박다솜', distinguisher: '', note: '계약이 모두 끝난 강사',
       careers: [year(y - 2, y - 1, '생명과학'), year(y - 1, y, '생명과학')],
     },
     {
       name: '최라온', distinguisher: '', note: '중도해지',
-      careers: [year(y - 1, y, '배드민턴'), ['배드민턴', `${y}-03-04`, `${y}-06-30`, 'TERMINATED']],
+      careers: [year(y - 1, y, '배드민턴'), ['배드민턴', `${y}-03-04`, `${y}-06-30`, 'TERMINATED', false, `${y + 1}-02-05`]],
     },
     { name: '정하늘', distinguisher: '1985년생', note: '동명이인(구분 메모 있음)', careers: [['미술', `${y}-03-04`, null, null]] },
     { name: '정하늘', distinguisher: '음악 강사', note: '동명이인(구분 메모 있음)', careers: [['음악', `${y - 1}-03-05`, null, null]] },
     { name: '임가온', distinguisher: '', note: '동명이인(구분 메모 없음 → 대시보드 확인 필요)', careers: [['요리', `${y}-03-04`, null, null]] },
     { name: '임가온', distinguisher: '', note: '동명이인(구분 메모 없음 → 대시보드 확인 필요)', careers: [['과학실험', `${y}-03-04`, null, null]] },
     {
-      name: '윤슬기', distinguisher: '', note: '잘못 넣은 경력 하나를 보관함',
-      careers: [['로봇과학', `${y}-03-04`, null, null], ['로봇과학', `${y}-03-04`, null, null, true]],
+      name: '윤슬기', distinguisher: '', note: '잘못 넣은 경력 하나를 보관함 · 예정 종료일이 지났는데 재직중',
+      careers: [['로봇과학', `${y}-03-04`, null, null, false, `${y}-08-31`], ['로봇과학', `${y}-03-04`, null, null, true]],
     },
     {
       name: '강다온', distinguisher: '', note: '종료일을 미리 넣어 둔 경력(올해 12월 31일)',
@@ -121,8 +121,8 @@ async function main() {
   )
   const insC = db.prepare(
     `INSERT INTO careers (uuid, instructor_id, program_name, position, duty, start_date, end_date,
-                          status, end_reason, memo, archived_at, created_at, updated_at)
-     VALUES (?, ?, ?, '강사', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                          status, end_reason, memo, archived_at, created_at, updated_at, planned_end_date)
+     VALUES (?, ?, ?, '강사', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
   const log = db.prepare(
     "INSERT INTO audit_log (at, action, target_type, target_id, summary) VALUES (?, ?, 'seed', NULL, ?)",
@@ -138,11 +138,11 @@ async function main() {
     for (const p of people) {
       const memo = `연습용 가상 자료 — ${p.note}`
       const id = insI.run(randomUUID(), p.name, p.distinguisher, memo, p.archived ? at : null, at, at).lastInsertRowid
-      for (const [program, start, end, reason, archived] of p.careers) {
+      for (const [program, start, end, reason, archived, planned] of p.careers) {
         insC.run(
           randomUUID(), id, program, `방과후학교 ${program}`, start, end,
           end ? 'ENDED' : 'ACTIVE', end ? reason : null,
-          archived ? '연습용 — 잘못 넣어 보관한 경력' : '', archived ? at : null, at, at,
+          archived ? '연습용 — 잘못 넣어 보관한 경력' : '', archived ? at : null, at, at, planned ?? null,
         )
         careers++
       }

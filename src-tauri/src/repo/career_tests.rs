@@ -204,3 +204,23 @@ fn 강사_uuid는_겹칠_수_없다() {
     })
     .unwrap();
 }
+
+#[test]
+fn db_예정_종료일은_시작일보다_빠르거나_엉터리일_수_없다() {
+    let db = Db::memory();
+    db.read(|c| {
+        raw(c, "2026-03-04", None, "ACTIVE", None).unwrap();
+        let id = c.last_insert_rowid();
+        let set = |v: Option<&str>| {
+            c.execute("UPDATE careers SET planned_end_date = ?1 WHERE id = ?2", params![v, id])
+        };
+        assert!(set(Some("2027-02-05")).is_ok());
+        assert!(set(None).is_ok());
+        assert!(set(Some("2026-03-04")).is_ok(), "시작일과 같은 날은 받는다");
+        for bad in ["2026-03-03", "2027-02-30", "현재", "2027.02.05"] {
+            assert!(check_failed(set(Some(bad))), "{bad}");
+        }
+        Ok(())
+    })
+    .unwrap();
+}

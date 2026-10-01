@@ -47,6 +47,7 @@ fn world() -> World {
                     status: if end.is_some() { CareerStatus::Ended } else { CareerStatus::Active },
                     end_date: end.map(String::from),
                     end_reason: end.map(|_| EndReason::ContractEnd),
+                    planned_end_date: None,
                     memo: "".into(),
                 },
                 false,
@@ -159,6 +160,7 @@ fn 미리보기_뒤에_자료가_바뀌면_적용하지_않는다() {
         status: CareerStatus::Active,
         end_date: None,
         end_reason: None,
+        planned_end_date: None,
         memo: "".into(),
     };
     v.memo = "고침".into();

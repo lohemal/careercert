@@ -13,6 +13,7 @@ fn active() -> CareerInput {
         status: CareerStatus::Active,
         end_date: None,
         end_reason: None,
+        planned_end_date: None,
         memo: "".into(),
     }
 }

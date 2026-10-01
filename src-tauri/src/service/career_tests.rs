@@ -38,6 +38,7 @@ fn active(start: &str) -> CareerInput {
         status: CareerStatus::Active,
         end_date: None,
         end_reason: None,
+        planned_end_date: None,
         memo: "".into(),
     }
 }
@@ -357,4 +358,53 @@ fn 바뀐_것이_없으면_기록도_수정_시각도_그대로다() {
     let same = db.write(|c| update(c, id, active("2026-03-04"), false, LATER)).unwrap();
     assert_eq!(same.updated_at, NOW);
     assert_eq!(db.read(|c| audit::for_target(c, "career", id)).unwrap().len(), 1);
+}
+
+// ---------------- 예정 종료일 ----------------
+
+#[test]
+fn 예정_종료일을_저장하고_고칠_수_있다() {
+    let db = Db::memory();
+    let who = teacher(&db, "김가람");
+    let mut v = active("2026-03-04");
+    v.planned_end_date = Some("2027-02-05".into());
+    let first = db.write(|c| create(c, who, v.clone(), false, NOW)).unwrap();
+    assert_eq!(first.fields.planned_end_date, Some(ymd(2027, 2, 5)));
+    assert_eq!(first.fields.term, Term::Active, "예정 종료일이 있어도 재직중이다");
+    assert_eq!(first.period(), "2026.03.04 ~ 현재", "표시 기간에 예정 종료일을 쓰지 않는다");
+
+    v.planned_end_date = Some("2027-02-12".into());
+    let c2 = db.write(|c| update(c, first.id, v.clone(), false, LATER)).unwrap();
+    assert_eq!(c2.fields.planned_end_date, Some(ymd(2027, 2, 12)));
+
+    v.planned_end_date = None;
+    let c3 = db.write(|c| update(c, c2.id, v, false, LATER)).unwrap();
+    assert_eq!(c3.fields.planned_end_date, None, "지울 수도 있다");
+
+    let log = db.read(|c| crate::repo::audit::for_target(c, "career", c3.id)).unwrap();
+    assert_eq!(log[1].summary, "변경 항목: 예정 종료일");
+}
+
+#[test]
+fn 예정_종료일은_시작일보다_빠를_수_없다() {
+    let db = Db::memory();
+    let who = teacher(&db, "김가람");
+    let mut v = active("2026-03-04");
+    v.planned_end_date = Some("2026-03-03".into());
+    let e = db.write(|c| create(c, who, v.clone(), false, NOW)).unwrap_err();
+    assert_eq!(e.code, "CAREER_PLANNED_BEFORE_START");
+    v.planned_end_date = Some("2026-02-30".into());
+    assert_eq!(db.write(|c| create(c, who, v, false, NOW)).unwrap_err().code, "DATE_NOT_EXIST");
+}
+
+#[test]
+fn 중도해지해도_예정_종료일은_남는다() {
+    let db = Db::memory();
+    let who = teacher(&db, "김가람");
+    let mut v = active("2026-03-04");
+    v.planned_end_date = Some("2027-02-05".into());
+    let id = db.write(|c| create(c, who, v, false, NOW)).unwrap().id;
+    let done = db.write(|c| end(c, id, "2026-09-30", EndReason::Terminated, false, NOW)).unwrap();
+    assert_eq!(done.fields.planned_end_date, Some(ymd(2027, 2, 5)));
+    assert_eq!(done.period(), "2026.03.04 ~ 2026.09.30", "실제 종료일은 end_date");
 }

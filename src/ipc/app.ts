@@ -18,6 +18,8 @@ export interface AppInfo {
   /** 연습용 실행 — 실제 자료와 따로 저장된다 */
   sandbox: boolean
   notes: StartupNote[]
+  /** WebView2 입력 자동완성 저장이 꺼졌는가 (null = 확인 전) */
+  autofillOff: boolean | null
 }
 
 export const appApi = {

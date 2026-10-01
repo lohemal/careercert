@@ -139,6 +139,9 @@ pub struct CareerInput {
     pub end_date: Option<String>,
     /// 재직중이면 null
     pub end_reason: Option<EndReason>,
+    /// 예정 종료일 (계약서 기준, 선택). 관리용 — 증명서 기간에는 쓰지 않는다.
+    #[serde(default)]
+    pub planned_end_date: Option<String>,
     pub memo: String,
 }
 
@@ -150,6 +153,8 @@ pub struct CareerFields {
     pub duty: String,
     pub start_date: NaiveDate,
     pub term: Term,
+    /// 예정 종료일 (관리용). 증명서 기간 계산(`domain::certificate`)은 이 값을 보지 않는다.
+    pub planned_end_date: Option<NaiveDate>,
     pub memo: String,
 }
 
@@ -225,6 +230,23 @@ pub fn prepare(raw: CareerInput) -> AppResult<CareerFields> {
     }
 
     let start_date = date_field("시작일", &raw.start_date)?;
+    let planned_end_date = match raw.planned_end_date.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        None => None,
+        Some(s) => {
+            let d = date_field("예정 종료일", s)?;
+            if d < start_date {
+                return Err(AppError::new(
+                    "CAREER_PLANNED_BEFORE_START",
+                    format!(
+                        "예정 종료일({})이 시작일({})보다 빠릅니다.",
+                        date::display(d),
+                        date::display(start_date)
+                    ),
+                ));
+            }
+            Some(d)
+        }
+    };
     let end_text = raw.end_date.as_deref().map(str::trim).filter(|s| !s.is_empty());
 
     let term = match raw.status {
@@ -265,6 +287,7 @@ pub fn prepare(raw: CareerInput) -> AppResult<CareerFields> {
         duty,
         start_date,
         term,
+        planned_end_date,
         memo,
     })
 }
@@ -317,12 +340,19 @@ pub fn changed_labels(old: &CareerFields, new: &CareerFields) -> Vec<&'static st
         ("상태", old.term.status() != new.term.status()),
         ("종료일", old.term.end_date() != new.term.end_date()),
         ("종료 사유", old.term.reason() != new.term.reason()),
+        ("예정 종료일", old.planned_end_date != new.planned_end_date),
         ("메모", old.memo != new.memo),
     ]
     .into_iter()
     .filter(|(_, changed)| *changed)
     .map(|(label, _)| label)
     .collect()
+}
+
+/// 재직중인데 예정 종료일이 오늘보다 앞인가 — 대시보드가 "종료 여부를 확인하세요" 라고 알린다.
+/// **알리기만 한다.** 이 날짜로 저절로 종료하지 않는다.
+pub fn planned_end_passed(f: &CareerFields, today: NaiveDate) -> bool {
+    f.term == Term::Active && f.planned_end_date.is_some_and(|d| d < today)
 }
 
 /// 종료일이 오늘보다 뒤인가. 재직중이면 None.

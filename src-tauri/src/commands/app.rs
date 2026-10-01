@@ -38,6 +38,8 @@ pub struct AppInfo {
     pub backup_dir: String,
     pub sandbox: bool,
     pub notes: Vec<StartupNote>,
+    /// WebView2 입력 자동완성 저장이 꺼졌는가. None = 아직 확인 전
+    pub autofill_off: Option<bool>,
 }
 
 #[tauri::command]
@@ -50,5 +52,6 @@ pub fn app_info(app: tauri::AppHandle, state: State<'_, AppState>) -> AppResult<
         backup_dir: state.db.backup_dir().display().to_string(),
         sandbox: state.sandbox,
         notes: state.notes(),
+        autofill_off: *state.autofill_off.lock().unwrap_or_else(|e| e.into_inner()),
     })
 }

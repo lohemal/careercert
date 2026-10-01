@@ -7,6 +7,7 @@ import { errorDetail, errorMessage } from '@/ipc/invoke'
 import { BulkEndPage } from '@/pages/BulkEndPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { InstructorsPage } from '@/pages/InstructorsPage'
+import { IssuePage } from '@/pages/IssuePage'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { settingsApi } from '@/ipc/settings'
@@ -59,16 +60,7 @@ export function App() {
           />
           <Route path="/instructors" element={<InstructorsPage />} />
           <Route path="/instructors/bulk-end" element={<BulkEndPage />} />
-          <Route
-            path="/issue"
-            element={
-              <PlaceholderPage
-                title="증명서 발급"
-                phase="Phase 4~6"
-                description="강사 선택 → 경력 선택 → 발급정보 입력 → 미리보기 → 발급 확정."
-              />
-            }
-          />
+          <Route path="/issue" element={<IssuePage />} />
           <Route
             path="/history"
             element={

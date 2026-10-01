@@ -1,0 +1,225 @@
+.inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* ---------- 1. 강사 ---------- */
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.searchBox {
+  position: relative;
+  max-width: 360px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-faint);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  padding-left: 32px;
+}
+
+.pickList {
+  display: flex;
+  flex-direction: column;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.pickRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  text-align: left;
+}
+
+.pickRow:last-child {
+  border-bottom: none;
+}
+
+.pickRow:hover {
+  background: var(--primary-soft);
+}
+
+.pickName {
+  font-weight: 700;
+  font-size: var(--fs-md);
+}
+
+.dist {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.distStrong {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--primary-text);
+  background: var(--primary-soft);
+  border: 1px solid var(--primary-border);
+  border-radius: var(--radius-full);
+  padding: 0 8px;
+}
+
+.pickMeta {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.selected {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.selectedName {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+/* ---------- 표 ---------- */
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.table th {
+  text-align: left;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.colCheck {
+  width: 36px;
+  text-align: center;
+}
+
+.rowOn td {
+  background: var(--primary-soft);
+}
+
+.rowOff td {
+  color: var(--text-faint);
+  background: var(--surface-2);
+}
+
+.period {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.reason {
+  font-weight: 400;
+  font-size: var(--fs-xs);
+  color: var(--error-text);
+}
+
+.state {
+  white-space: nowrap;
+}
+
+.sub {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* ---------- 3. 발급 정보 ---------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-4) var(--sp-5);
+  max-width: 920px;
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+/* ---------- 내용 확인 ---------- */
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.blocked {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.doc {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--sp-1) var(--sp-5);
+  margin: 0;
+}
+
+.doc dt {
+  color: var(--text-muted);
+}
+
+.doc dd {
+  margin: 0;
+}
+
+.docTitle {
+  font-weight: 700;
+}

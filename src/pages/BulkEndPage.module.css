@@ -98,3 +98,10 @@
   color: var(--warn-text);
   font-weight: 700;
 }
+
+.plannedPassed {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--warn-text);
+  font-weight: 700;
+}

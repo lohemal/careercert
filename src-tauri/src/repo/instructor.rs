@@ -103,6 +103,8 @@ pub struct Summary {
     pub careers: i64,
     /// 그중 재직중
     pub active_careers: i64,
+    /// 보관하지 않은 경력의 프로그램명 (가나다순, 겹치지 않게) — 동명이인을 가리는 데 쓴다
+    pub programs: Vec<String>,
 }
 
 /// 찾기. 이름 차례, 같은 이름은 등록 차례.
@@ -115,7 +117,10 @@ pub fn search(conn: &Connection, filter: &Filter) -> AppResult<Vec<Summary>> {
             SELECT {cols},
                    (SELECT COUNT(*) FROM careers c WHERE c.instructor_id = i.id AND c.archived_at IS NULL) AS n_all,
                    (SELECT COUNT(*) FROM careers c WHERE c.instructor_id = i.id AND c.archived_at IS NULL
-                                                     AND c.status = 'ACTIVE') AS n_active
+                                                     AND c.status = 'ACTIVE') AS n_active,
+                   (SELECT group_concat(p, char(31)) FROM (
+                        SELECT DISTINCT program_name AS p FROM careers c
+                         WHERE c.instructor_id = i.id AND c.archived_at IS NULL ORDER BY p)) AS programs
               FROM instructors i
              WHERE (?1 = '' OR instr(i.name, ?1) > 0 OR instr(i.distinguisher, ?1) > 0)
          )
@@ -139,6 +144,10 @@ pub fn search(conn: &Connection, filter: &Filter) -> AppResult<Vec<Summary>> {
                 instructor: from_row(r)?,
                 careers: r.get(9)?,
                 active_careers: r.get(10)?,
+                programs: r
+                    .get::<_, Option<String>>(11)?
+                    .map(|s| s.split('\u{1f}').map(String::from).collect())
+                    .unwrap_or_default(),
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;

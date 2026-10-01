@@ -260,6 +260,11 @@ function InstructorDetail({ id }: { id: number }) {
                 <td className={s.period} title={c.period}>
                   {/* 좁으면 "~" 뒤에서만 줄이 바뀐다 */}
                   <span className={s.nowrap}>{c.periodFrom} ~</span> <span className={s.nowrap}>{c.periodTo}</span>
+                  {c.plannedEndLabel && (
+                    <span className={s.planned} title="예정 종료일 (관리용 — 증명서 기간에는 쓰지 않음)">
+                      예정 {c.plannedEndLabel}
+                    </span>
+                  )}
                 </td>
                 <td>{c.programName}</td>
                 <td className={s.nowrap}>{c.position}</td>
@@ -268,6 +273,7 @@ function InstructorDetail({ id }: { id: number }) {
                   <span className={s.badges}>
                     <Badge tone={c.status === 'ACTIVE' ? 'success' : 'neutral'}>{c.statusLabel}</Badge>
                     {c.futureEnd && <Badge tone="warn">종료 예정</Badge>}
+                    {c.plannedEndPassed && <Badge tone="warn">예정 종료일 지남</Badge>}
                     {c.archived && <Badge tone="neutral">보관</Badge>}
                   </span>
                   {c.endReasonLabel && <span className={s.reason}>{c.endReasonLabel}</span>}

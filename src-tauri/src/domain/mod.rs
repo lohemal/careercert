@@ -2,6 +2,8 @@
 
 pub mod audit;
 pub mod career;
+pub mod certificate;
 pub mod date;
 pub mod instructor;
+pub mod rrn;
 pub mod settings;

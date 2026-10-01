@@ -41,6 +41,12 @@ pub struct CareerView {
     pub period_to: String,
     /// 종료일이 오늘보다 뒤
     pub future_end: bool,
+    /// 입력 칸용 `YYYY-MM-DD` — 예정 종료일 (관리용, 증명서 기간과 무관)
+    pub planned_end_date: Option<String>,
+    /// `2027.02.05`
+    pub planned_end_label: Option<String>,
+    /// 재직중인데 예정 종료일이 지났다 (알리기만 한다)
+    pub planned_end_passed: bool,
     pub memo: String,
     pub archived: bool,
     pub archived_at: Option<String>,
@@ -56,6 +62,9 @@ pub(crate) fn view(c: Career, today: NaiveDate) -> CareerView {
         period_to,
         archived: c.is_archived(),
         future_end: crate::domain::career::future_end(&term, today).is_some(),
+        planned_end_date: c.fields.planned_end_date.map(date::to_iso),
+        planned_end_label: c.fields.planned_end_date.map(date::display),
+        planned_end_passed: crate::domain::career::planned_end_passed(&c.fields, today),
         id: c.id,
         instructor_id: c.instructor_id,
         start_date: date::to_iso(c.fields.start_date),

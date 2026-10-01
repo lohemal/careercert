@@ -32,6 +32,12 @@ export interface Career {
   periodFrom: string
   periodTo: string
   futureEnd: boolean
+  /** 예정 종료일 YYYY-MM-DD — 관리용, 증명서 기간과 무관 */
+  plannedEndDate: string | null
+  /** `2027.02.05` */
+  plannedEndLabel: string | null
+  /** 재직중인데 예정 종료일이 지났다 */
+  plannedEndPassed: boolean
   memo: string
   archived: boolean
   archivedAt: string | null
@@ -46,6 +52,7 @@ export interface CareerInput {
   status: CareerStatus
   endDate: string | null
   endReason: EndReason | null
+  plannedEndDate: string | null
   memo: string
 }
 
