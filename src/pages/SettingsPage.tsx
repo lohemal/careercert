@@ -7,6 +7,7 @@ import { Badge, Button, Card, ErrorNotice, Field, Input, Notice, Page } from '@/
 import type { AppInfo } from '@/ipc/app'
 import { PortableSection } from '@/features/data/PortableSection'
 import { RecoverySection } from '@/features/data/RecoverySection'
+import { UpdateSection } from '@/features/data/UpdateSection'
 import {
   DEFAULT_PURPOSE,
   DEFAULT_TITLE,
@@ -244,6 +245,7 @@ export function SettingsPage({ info }: Props) {
       <Card title="데이터 관리" description="자료는 이 컴퓨터에만 저장됩니다. 앱 안의 자동 백업은 하루 한 번 자료 폴더의 backups 에 만들어집니다.">
         <RecoverySection />
         <PortableSection />
+        <UpdateSection version={info.appVersion} sandbox={info.sandbox} />
         <section className={s.dataSection}>
           <h3 className={s.dataTitle}>엑셀 가져오기</h3>
           <p className={s.recoveryNote}>기존 엑셀 강사명단(.xlsx·.xlsm)에서 강사와 경력을 가져옵니다. 미리보기를 거친 뒤에만 반영합니다.</p>

@@ -4,6 +4,8 @@ import { Download } from 'lucide-react'
 import { invoke } from '@/ipc/invoke'
 import s from './UpdateNotice.module.css'
 
+type Update = import('@tauri-apps/plugin-updater').Update
+
 /**
  * 새 버전 알림 (사이드바 아래).
  *
@@ -23,17 +25,51 @@ type Phase =
 
 const DELAY_MS = 3000
 
+/** 새 버전을 찾아본다. 없으면 null (실패하면 예외) */
+export async function findUpdate(): Promise<Update | null> {
+  const { check } = await import('@tauri-apps/plugin-updater')
+  return await check()
+}
+
+/**
+ * 내려받고 → 자료 연결을 닫고 → 설치한다. 진행 문구는 `say` 로 알린다.
+ * 정상이면 돌아오지 않는다(설치 프로그램이 앱을 끝내고 새 버전을 켠다). 실패하면 안내 문구를 돌려준다.
+ */
+export async function installUpdate(update: Update, say: (message: string) => void): Promise<string> {
+  let total = 0
+  let got = 0
+  say('새 버전을 내려받는 중…')
+  try {
+    await update.download((e) => {
+      if (e.event === 'Started') total = e.data.contentLength ?? 0
+      if (e.event === 'Progress') {
+        got += e.data.chunkLength
+        if (total > 0) say(`내려받는 중… ${Math.round((got / total) * 100)}%`)
+      }
+    })
+  } catch {
+    return '새 버전을 내려받지 못했습니다. 지금 버전은 그대로 쓸 수 있습니다.'
+  }
+  say('설치합니다. 프로그램이 잠시 닫혔다가 다시 켜집니다…')
+  try {
+    await invoke('app_prepare_update')
+    await update.install()
+    return '설치 프로그램이 끝나기를 기다리는 중입니다…'
+  } catch {
+    return '설치하지 못했습니다. 프로그램을 닫았다가 다시 열어 주세요. 자료는 그대로입니다.'
+  }
+}
+
 export function UpdateNotice({ enabled }: { enabled: boolean }) {
   const [phase, setPhase] = useState<Phase>({ kind: 'quiet' })
-  const [update, setUpdate] = useState<import('@tauri-apps/plugin-updater').Update | null>(null)
+  const [update, setUpdate] = useState<Update | null>(null)
 
   useEffect(() => {
     if (!enabled) return
     let alive = true
     const timer = setTimeout(async () => {
       try {
-        const { check } = await import('@tauri-apps/plugin-updater')
-        const found = await check()
+        const found = await findUpdate()
         if (!alive || !found) return
         setUpdate(found)
         setPhase({ kind: 'found', version: found.version })
@@ -50,29 +86,8 @@ export function UpdateNotice({ enabled }: { enabled: boolean }) {
   if (phase.kind === 'quiet' || !update) return null
 
   const install = async () => {
-    let total = 0
-    let got = 0
-    setPhase({ kind: 'working', message: '새 버전을 내려받는 중…' })
-    try {
-      await update.download((e) => {
-        if (e.event === 'Started') total = e.data.contentLength ?? 0
-        if (e.event === 'Progress') {
-          got += e.data.chunkLength
-          if (total > 0) setPhase({ kind: 'working', message: `내려받는 중… ${Math.round((got / total) * 100)}%` })
-        }
-      })
-    } catch {
-      setPhase({ kind: 'failed', message: '새 버전을 내려받지 못했습니다. 지금 버전은 그대로 쓸 수 있습니다.' })
-      return
-    }
-    setPhase({ kind: 'working', message: '설치합니다. 프로그램이 잠시 닫혔다가 다시 켜집니다…' })
-    try {
-      await invoke('app_prepare_update')
-      await update.install()
-      // 여기로 돌아오지 않는 것이 정상이다 (설치 프로그램이 앱을 끝낸다)
-    } catch {
-      setPhase({ kind: 'failed', message: '설치하지 못했습니다. 프로그램을 닫았다가 다시 열어 주세요. 자료는 그대로입니다.' })
-    }
+    const failed = await installUpdate(update, (message) => setPhase({ kind: 'working', message }))
+    setPhase({ kind: 'failed', message: failed })
   }
 
   return (
