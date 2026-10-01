@@ -10,19 +10,19 @@ use crate::domain::settings::{SettingsInput, DEFAULT_PURPOSE, DEFAULT_TITLE};
 use crate::repo::settings as settings_repo;
 use crate::service::{career, instructor};
 
-const NOW: &str = "2026-10-01T09:00:00";
-const LATER: &str = "2026-11-02T09:00:00";
-const FAKE_RRN: &str = "880808-2000002"; // privacy:fake
-const FAKE_ADDRESS: &str = "가상시 연습구 시험로 123-45";
+pub(crate) const NOW: &str = "2026-10-01T09:00:00";
+pub(crate) const LATER: &str = "2026-11-02T09:00:00";
+pub(crate) const FAKE_RRN: &str = "880808-2000002"; // privacy:fake
+pub(crate) const FAKE_ADDRESS: &str = "가상시 연습구 시험로 123-45";
 
-struct World {
-    db: Db,
-    who: i64,
-    active: i64,
-    ended: i64,
+pub(crate) struct World {
+    pub(crate) db: Db,
+    pub(crate) who: i64,
+    pub(crate) active: i64,
+    pub(crate) ended: i64,
 }
 
-fn school(c: &Connection, manager: &str) {
+pub(crate) fn school(c: &Connection, manager: &str) {
     settings_repo::save(
         c,
         SettingsInput {
@@ -39,7 +39,7 @@ fn school(c: &Connection, manager: &str) {
     .unwrap();
 }
 
-fn career_input(program: &str, start: &str, end: Option<&str>, planned: Option<&str>) -> CareerInput {
+pub(crate) fn career_input(program: &str, start: &str, end: Option<&str>, planned: Option<&str>) -> CareerInput {
     CareerInput {
         program_name: program.into(),
         position: "강사".into(),
@@ -53,7 +53,7 @@ fn career_input(program: &str, start: &str, end: Option<&str>, planned: Option<&
     }
 }
 
-fn world_in(db: Db) -> World {
+pub(crate) fn world_in(db: Db) -> World {
     db.write(|c| {
         school(c, "가상담당");
         Ok(())
@@ -74,11 +74,11 @@ fn world_in(db: Db) -> World {
     World { db, who, active, ended }
 }
 
-fn world() -> World {
+pub(crate) fn world() -> World {
     world_in(Db::memory())
 }
 
-fn request(w: &World, issue_no: &str) -> PrepareRequest {
+pub(crate) fn request(w: &World, issue_no: &str) -> PrepareRequest {
     PrepareRequest {
         instructor_id: w.who,
         career_ids: vec![w.ended, w.active],
@@ -94,7 +94,7 @@ fn request(w: &World, issue_no: &str) -> PrepareRequest {
 }
 
 /// 내용 확인 → (경고 모두 확인) → 발급 확정
-fn issue_now(w: &World, issue_no: &str) -> AppResult<i64> {
+pub(crate) fn issue_now(w: &World, issue_no: &str) -> AppResult<i64> {
     let req = request(w, issue_no);
     let built = w.db.read(|c| drafting::prepare(c, req.clone(), NOW))?;
     let token = review_token(&built.doc);
@@ -102,11 +102,11 @@ fn issue_now(w: &World, issue_no: &str) -> AppResult<i64> {
     w.db.write(|c| issue(c, IssueRequest { prepare: req, review_token: token, acknowledged: acks, copied_from: None }, NOW, LOCAL_ACTOR))
 }
 
-fn periods(doc: &CertificateDoc) -> Vec<String> {
+pub(crate) fn periods(doc: &CertificateDoc) -> Vec<String> {
     doc.items.iter().map(|i| format!("{} ~ {}", i.from_text, i.to_text)).collect()
 }
 
-fn reopen(w: &World, id: i64) -> CertificateDoc {
+pub(crate) fn reopen(w: &World, id: i64) -> CertificateDoc {
     w.db.read(|c| reconstruct(c, id)).unwrap().doc
 }
 
@@ -278,11 +278,11 @@ fn db_도_발급번호_중복을_막는다() {
 
 // ---------------- DB 수준 불변 ----------------
 
-fn count(db: &Db, table: &str) -> i64 {
+pub(crate) fn count(db: &Db, table: &str) -> i64 {
     db.read(|c| Ok(c.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))?)).unwrap()
 }
 
-fn sql(db: &Db, s: &str) -> Result<usize, String> {
+pub(crate) fn sql(db: &Db, s: &str) -> Result<usize, String> {
     db.read(|c| Ok(c.execute(s, []).map_err(|e| e.to_string()))).unwrap()
 }
 
@@ -416,7 +416,7 @@ fn 출력은_성공과_실패를_나눠_남긴다() {
     w.db.write(|c| record_output(c, id, OutputKind::Print { copies: 2 }, Some("가상 프린터"), true, "", NOW)).unwrap();
     w.db.write(|c| record_output(c, id, OutputKind::Print { copies: 1 }, Some("가상 프린터"), false, "PRINTER_UNAVAILABLE", NOW))
         .unwrap();
-    let s = w.db.read(|c| summary(c, id)).unwrap();
+    let s = w.db.read(|c| crate::service::history::detail(c, id)).unwrap();
     let rows: Vec<(String, String, Option<String>, Option<i64>)> = s
         .outputs
         .iter()

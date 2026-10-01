@@ -13,7 +13,8 @@ use super::now;
 use crate::domain::date;
 use crate::error::{AppError, AppResult};
 use crate::print::{output, PrintStatus, Printers};
-use crate::service::issuance::{self as service, IssueRequest, OutputKind, Summary};
+use crate::service::history::{self, Detail};
+use crate::service::issuance::{self as service, IssueRequest, OutputKind};
 use crate::AppState;
 
 #[derive(Debug, Serialize)]
@@ -25,10 +26,31 @@ pub struct OutputView {
     pub result: String,
     pub printer_name: Option<String>,
     pub copies: Option<i64>,
+    /// 실패했을 때 까닭 코드 (개인정보·경로 없음)
+    pub detail: Option<String>,
     pub at: String,
 }
 
-/// 발급 기록 요약 — 주민번호는 가린 값만.
+/// 경력 사본 한 줄 (발급 당시 글자 그대로)
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IssuedItemView {
+    pub seq: i64,
+    pub from_text: String,
+    pub to_text: String,
+    pub program_name: String,
+    pub position: String,
+    pub duty: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CopiedFromView {
+    pub id: i64,
+    pub issue_no: String,
+}
+
+/// 발급 기록 (발급 당시 스냅샷) — 주민번호는 가린 값만, 주소는 없다. **복호화하지 않고 만든다.**
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IssuedView {
@@ -42,6 +64,11 @@ pub struct IssuedView {
     pub purpose: String,
     pub item_count: i64,
     pub issuer_title: String,
+    pub department: String,
+    pub manager_name: String,
+    pub phone: String,
+    pub items: Vec<IssuedItemView>,
+    pub copied_from: Option<CopiedFromView>,
     /// ISSUED · VOIDED
     pub status: String,
     pub voided_at: Option<String>,
@@ -54,8 +81,8 @@ pub struct IssuedView {
     pub outputs: Vec<OutputView>,
 }
 
-fn view(s: Summary) -> IssuedView {
-    let r = s.row;
+pub(crate) fn view(s: Detail) -> IssuedView {
+    let r = s.meta;
     let issued = r.status == "ISSUED";
     IssuedView {
         issued_on_label: date::parse_iso(&r.issued_on).map(date::display).unwrap_or_else(|_| r.issued_on.clone()),
@@ -69,6 +96,22 @@ fn view(s: Summary) -> IssuedView {
         purpose: r.purpose,
         item_count: r.item_count,
         issuer_title: r.issuer_title,
+        department: r.department,
+        manager_name: r.manager_name,
+        phone: r.phone,
+        items: s
+            .items
+            .into_iter()
+            .map(|it| IssuedItemView {
+                seq: it.seq,
+                from_text: it.from_text,
+                to_text: it.to_text,
+                program_name: it.program_name,
+                position: it.position,
+                duty: it.duty,
+            })
+            .collect(),
+        copied_from: s.copied_from.map(|(id, issue_no)| CopiedFromView { id, issue_no }),
         status: r.status,
         voided_at: r.voided_at,
         void_reason: r.void_reason,
@@ -77,6 +120,7 @@ fn view(s: Summary) -> IssuedView {
             .outputs
             .into_iter()
             .map(|o| OutputView {
+                detail: (o.result != "SUCCESS" && !o.detail.is_empty()).then_some(o.detail),
                 output_type: o.output_type,
                 result: o.result,
                 printer_name: o.printer_name,
@@ -92,12 +136,12 @@ fn view(s: Summary) -> IssuedView {
 pub fn certificate_issue(state: State<'_, AppState>, request: IssueRequest) -> AppResult<IssuedView> {
     let now = now();
     let id = state.db.write(|c| service::issue(c, request, &now, service::LOCAL_ACTOR))?;
-    Ok(view(state.db.read(|c| service::summary(c, id))?))
+    Ok(view(state.db.read(|c| history::detail(c, id))?))
 }
 
 #[tauri::command]
 pub fn certificate_issued(state: State<'_, AppState>, id: i64) -> AppResult<IssuedView> {
-    Ok(view(state.db.read(|c| service::summary(c, id))?))
+    Ok(view(state.db.read(|c| history::detail(c, id))?))
 }
 
 /// 발급 취소 — 사유 필수. 내용은 그대로, 정식 출력은 막힌다.
@@ -105,7 +149,7 @@ pub fn certificate_issued(state: State<'_, AppState>, id: i64) -> AppResult<Issu
 pub fn certificate_void(state: State<'_, AppState>, id: i64, reason: String) -> AppResult<IssuedView> {
     let now = now();
     state.db.write(|c| service::void(c, id, &reason, &now))?;
-    Ok(view(state.db.read(|c| service::summary(c, id))?))
+    Ok(view(state.db.read(|c| history::detail(c, id))?))
 }
 
 /// 설치된 프린터와 기본 프린터·상태.
@@ -144,7 +188,7 @@ pub async fn certificate_save_pdf(app: tauri::AppHandle, state: State<'_, AppSta
         });
     let picked = rx.await.map_err(|e| AppError::internal(e.to_string()))?;
     let Some(picked) = picked else {
-        return Ok(SaveResult { saved: false, file_name: None, issued: view(state.db.read(|c| service::summary(c, id))?) });
+        return Ok(SaveResult { saved: false, file_name: None, issued: view(state.db.read(|c| history::detail(c, id))?) });
     };
     let mut path = picked.into_path().map_err(|e| AppError::internal(e.to_string()))?;
     if path.extension().is_none() {
@@ -159,7 +203,7 @@ pub async fn certificate_save_pdf(app: tauri::AppHandle, state: State<'_, AppSta
     };
     state.db.write(|c| service::record_output(c, id, OutputKind::Pdf, None, ok, &detail, &now))?;
     result?;
-    Ok(SaveResult { saved: true, file_name, issued: view(state.db.read(|c| service::summary(c, id))?) })
+    Ok(SaveResult { saved: true, file_name, issued: view(state.db.read(|c| history::detail(c, id))?) })
 }
 
 #[derive(Debug, Serialize)]
@@ -179,9 +223,7 @@ pub async fn certificate_print(
     printer: String,
     copies: u32,
 ) -> AppResult<PrintResult> {
-    if !(1..=20).contains(&copies) {
-        return Err(AppError::invalid("매수는 1~20부 사이로 골라 주세요."));
-    }
+    service::check_copies(copies)?;
     let printer = printer.trim().to_string();
     if printer.is_empty() {
         return Err(AppError::invalid("프린터를 골라 주세요."));
@@ -200,5 +242,5 @@ pub async fn certificate_print(
         .db
         .write(|c| service::record_output(c, id, OutputKind::Print { copies }, Some(&printer), ok, &detail, &now))?;
     let status = outcome?;
-    Ok(PrintResult { status, issued: view(state.db.read(|c| service::summary(c, id))?) })
+    Ok(PrintResult { status, issued: view(state.db.read(|c| history::detail(c, id))?) })
 }

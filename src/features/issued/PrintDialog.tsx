@@ -4,7 +4,7 @@ import { Printer, RefreshCw } from 'lucide-react'
 import { Badge, Button, ErrorNotice, Field, Modal, Select } from '@/components/ui'
 import { useConfirm } from '@/components/useConfirm'
 import { errorMessage } from '@/ipc/invoke'
-import { issuanceApi, type Issued, type Printers } from '@/ipc/issuance'
+import { issuanceApi, MAX_COPIES, type Issued, type Printers } from '@/ipc/issuance'
 import s from './IssuedPanel.module.css'
 
 interface Props {
@@ -14,7 +14,7 @@ interface Props {
 }
 
 const STATUS_TEXT: Record<string, string> = {
-  SUCCEEDED: '인쇄를 프린터로 보냈습니다.',
+  SUCCEEDED: '인쇄를 보냈습니다.',
   PRINTER_UNAVAILABLE: '프린터를 쓸 수 없어 인쇄하지 못했습니다. 프린터 연결·전원을 확인해 주세요.',
   OTHER_ERROR: '인쇄하지 못했습니다.',
 }
@@ -120,7 +120,7 @@ export function PrintDialog({ issued, onClose, onDone }: Props) {
           )}
           <Field label="매수">
             <Select value={copies} onChange={(e) => setCopies(Number(e.target.value))}>
-              {[1, 2, 3, 4, 5].map((n) => (
+              {Array.from({ length: MAX_COPIES }, (_, i) => i + 1).map((n) => (
                 <option key={n} value={n}>
                   {n}부
                 </option>

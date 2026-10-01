@@ -77,3 +77,38 @@
   color: var(--warn-text);
   font-weight: 700;
 }
+
+.link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.items {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.items th,
+.items td {
+  border-bottom: 1px solid var(--border);
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.items th {
+  color: var(--text-muted);
+  font-weight: 600;
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+
+.items td:nth-child(1),
+.items td:nth-child(2) {
+  white-space: nowrap;
+}

@@ -6,9 +6,9 @@ import { appApi } from '@/ipc/app'
 import { errorDetail, errorMessage } from '@/ipc/invoke'
 import { BulkEndPage } from '@/pages/BulkEndPage'
 import { DashboardPage } from '@/pages/DashboardPage'
+import { HistoryPage } from '@/pages/HistoryPage'
 import { InstructorsPage } from '@/pages/InstructorsPage'
 import { IssuePage } from '@/pages/IssuePage'
-import { PlaceholderPage } from '@/pages/PlaceholderPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { settingsApi } from '@/ipc/settings'
 import s from './App.module.css'
@@ -61,16 +61,7 @@ export function App() {
           <Route path="/instructors" element={<InstructorsPage />} />
           <Route path="/instructors/bulk-end" element={<BulkEndPage />} />
           <Route path="/issue" element={<IssuePage />} />
-          <Route
-            path="/history"
-            element={
-              <PlaceholderPage
-                title="발급이력"
-                phase="Phase 7"
-                description="발급된 증명서 검색·열람, 발급 당시 내용 그대로 재출력·PDF 저장."
-              />
-            }
-          />
+          <Route path="/history" element={<HistoryPage />} />
           <Route path="/settings" element={<SettingsPage info={info.data} />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

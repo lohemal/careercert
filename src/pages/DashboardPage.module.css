@@ -126,3 +126,11 @@
   font-size: var(--fs-sm);
   color: var(--text-2);
 }
+
+/* ---------- 발급 현황 ---------- */
+
+.recent {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-5);
+}

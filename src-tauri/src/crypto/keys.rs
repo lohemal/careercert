@@ -63,3 +63,12 @@ pub fn current(conn: &Connection) -> AppResult<Option<DataKey>> {
         .optional()?;
     row.map(|(id, blob)| unwrap(id, &blob)).transpose()
 }
+
+/// (키 수, 복구 사본이 없는 키 수). 키 값은 읽지 않는다 — 복구 설정 상태 안내용.
+pub fn recovery_counts(conn: &Connection) -> AppResult<(i64, i64)> {
+    Ok(conn.query_row(
+        "SELECT COUNT(*), COALESCE(SUM(recovery_blob IS NULL), 0) FROM key_store",
+        [],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )?)
+}

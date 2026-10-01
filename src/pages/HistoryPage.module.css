@@ -1,0 +1,136 @@
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.searchBox {
+  position: relative;
+  flex: 1 1 220px;
+  max-width: 320px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-faint);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  padding-left: 32px;
+}
+
+.dateField {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.dateField input {
+  width: 150px;
+}
+
+.statuses {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+}
+
+.status,
+.statusOn {
+  min-width: 56px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.statusOn {
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.tableWrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.table th {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+
+.row,
+.rowVoided {
+  cursor: pointer;
+}
+
+.row:hover,
+.rowVoided:hover,
+.row:focus-visible,
+.rowVoided:focus-visible {
+  background: var(--primary-soft);
+  outline: none;
+}
+
+.rowVoided td {
+  color: var(--text-muted);
+}
+
+.rowVoided .issueNo {
+  text-decoration: line-through;
+}
+
+.issueNo {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.num {
+  text-align: right !important;
+  white-space: nowrap;
+}
+
+.empty {
+  padding: var(--sp-5);
+  text-align: center;
+  color: var(--text-faint);
+}
+
+.foot {
+  font-size: var(--fs-sm);
+  color: var(--text-faint);
+}

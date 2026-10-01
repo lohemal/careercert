@@ -278,3 +278,143 @@ pub fn outputs(conn: &Connection, certificate_id: i64) -> AppResult<Vec<OutputRo
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(rows)
 }
+
+// ---------------------------------------------------------------
+// 발급이력 — 목록·상세용 (암호문은 읽지 않는다)
+// ---------------------------------------------------------------
+
+/// 발급 기록에서 **암호문이 아닌 칸만**. 목록·상세·대시보드·"새 증명서 작성" 은 이것만 읽는다 —
+/// `sensitive_*`·`key_id`·`doc_hash` 를 SELECT 하지 않으므로 복호화할 거리가 아예 없다.
+#[derive(Clone, PartialEq, Eq)]
+pub struct Meta {
+    pub id: i64,
+    pub issue_no: String,
+    pub issued_on: String,
+    pub title: String,
+    pub purpose: String,
+    pub holder_name: String,
+    pub masked_rrn: String,
+    pub rrn_display: String,
+    pub issuer_title: String,
+    pub department: String,
+    pub manager_name: String,
+    pub phone: String,
+    pub item_count: i64,
+    pub status: String,
+    pub voided_at: Option<String>,
+    pub void_reason: Option<String>,
+    pub source_instructor_id: Option<i64>,
+    pub copied_from_certificate_id: Option<i64>,
+    pub created_at: String,
+}
+
+impl std::fmt::Debug for Meta {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("certificates::Meta")
+            .field("id", &self.id)
+            .field("issue_no", &self.issue_no)
+            .field("status", &self.status)
+            .finish_non_exhaustive()
+    }
+}
+
+const META_COLS: &str = "id, issue_no, issued_on, title, purpose, holder_name, masked_rrn, rrn_display, issuer_title,
+                         department, manager_name, phone, item_count, status, voided_at, void_reason,
+                         source_instructor_id, copied_from_certificate_id, created_at";
+
+fn meta_from_row(r: &SqlRow<'_>) -> rusqlite::Result<Meta> {
+    Ok(Meta {
+        id: r.get(0)?,
+        issue_no: r.get(1)?,
+        issued_on: r.get(2)?,
+        title: r.get(3)?,
+        purpose: r.get(4)?,
+        holder_name: r.get(5)?,
+        masked_rrn: r.get(6)?,
+        rrn_display: r.get(7)?,
+        issuer_title: r.get(8)?,
+        department: r.get(9)?,
+        manager_name: r.get(10)?,
+        phone: r.get(11)?,
+        item_count: r.get(12)?,
+        status: r.get(13)?,
+        voided_at: r.get(14)?,
+        void_reason: r.get(15)?,
+        source_instructor_id: r.get(16)?,
+        copied_from_certificate_id: r.get(17)?,
+        created_at: r.get(18)?,
+    })
+}
+
+pub fn find_meta(conn: &Connection, id: i64) -> AppResult<Option<Meta>> {
+    Ok(conn
+        .query_row(&format!("SELECT {META_COLS} FROM certificates WHERE id = ?1"), [id], meta_from_row)
+        .optional()?)
+}
+
+pub fn get_meta(conn: &Connection, id: i64) -> AppResult<Meta> {
+    find_meta(conn, id)?.ok_or_else(|| AppError::not_found("발급 기록을 찾을 수 없습니다."))
+}
+
+/// 목록 조건 (service 가 검사한 값만).
+pub struct ListFilter<'a> {
+    /// 성명·발급번호 일부 (앞뒤 공백 정리됨, 빈 글자 = 조건 없음)
+    pub query: &'a str,
+    /// 발급일 이후 (YYYY-MM-DD, 그날 포함)
+    pub from: Option<&'a str>,
+    /// 발급일 이전 (그날 포함)
+    pub to: Option<&'a str>,
+    /// ISSUED · VOIDED · None(전체)
+    pub status: Option<&'a str>,
+    pub limit: i64,
+}
+
+/// 발급이력 목록 — 최근 발급순(발급일 내림차순, 같은 날은 나중에 확정한 것 먼저).
+///
+/// 기존 강사 찾기와 같이 `LIKE` 대신 `instr` — 검색어의 `%`·`_` 가 와일드카드가 되지 않는다.
+/// 발급번호는 공백을 뺀 비교용 번호(`issue_no_key`)로도 찾는다(`2026-가- 0001` ↔ `2026-가-0001`).
+/// 주민번호·주소로는 찾지 않는다(암호문이라 찾을 수도 없다).
+pub fn search(conn: &Connection, f: &ListFilter<'_>) -> AppResult<Vec<Meta>> {
+    let key: String = f.query.chars().filter(|c| !c.is_whitespace()).collect();
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {META_COLS} FROM certificates
+          WHERE (?1 = '' OR instr(holder_name, ?1) > 0 OR instr(issue_no, ?1) > 0
+                 OR (?2 <> '' AND instr(issue_no_key, ?2) > 0))
+            AND (?3 IS NULL OR issued_on >= ?3)
+            AND (?4 IS NULL OR issued_on <= ?4)
+            AND (?5 IS NULL OR status = ?5)
+          ORDER BY issued_on DESC, id DESC
+          LIMIT ?6"
+    ))?;
+    let rows = stmt
+        .query_map(params![f.query, key, f.from, f.to, f.status, f.limit], meta_from_row)?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+/// 최근 확정한 발급 건 (발급 상태만).
+pub fn recent_issued(conn: &Connection, limit: i64) -> AppResult<Vec<Meta>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {META_COLS} FROM certificates WHERE status = 'ISSUED' ORDER BY id DESC LIMIT ?1"
+    ))?;
+    let rows = stmt.query_map([limit], meta_from_row)?.collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+/// 최근 취소한 발급 건 (취소 시각 차례).
+pub fn recent_voided(conn: &Connection, limit: i64) -> AppResult<Vec<Meta>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {META_COLS} FROM certificates WHERE status = 'VOIDED' ORDER BY voided_at DESC, id DESC LIMIT ?1"
+    ))?;
+    let rows = stmt.query_map([limit], meta_from_row)?.collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+/// 상태별 건수 (발급, 취소)
+pub fn counts(conn: &Connection) -> AppResult<(i64, i64)> {
+    Ok(conn.query_row(
+        "SELECT COALESCE(SUM(status = 'ISSUED'), 0), COALESCE(SUM(status = 'VOIDED'), 0) FROM certificates",
+        [],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )?)
+}

@@ -10,6 +10,8 @@ import s from './ConfirmIssueDialog.module.css'
 interface Props {
   request: PrepareRequest
   prepared: Prepared
+  /** "이 내용으로 새 증명서 작성" 의 원래 발급 기록 — 확정하면 새 기록에 연결한다 */
+  copiedFrom: { id: number; issueNo: string } | null
   onIssued: (issued: Issued) => void
   /** 내용 확인 뒤 자료가 바뀌어 거절되었다 — 내용 확인을 다시 해야 한다 */
   onStale: (message: string) => void
@@ -21,7 +23,7 @@ interface Props {
  * 경고가 없으면 체크 칸도 없다. 서버는 같은 요청으로 문서를 다시 만들어 검증한다(바뀌었으면 거절).
  * 요청에 주민번호·주소가 있으므로 useMutation 을 쓰지 않고 직접 부른다.
  */
-export function ConfirmIssueDialog({ request, prepared, onIssued, onStale, onClose }: Props) {
+export function ConfirmIssueDialog({ request, prepared, copiedFrom, onIssued, onStale, onClose }: Props) {
   const d = prepared.doc
   const [acked, setAcked] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
@@ -45,7 +47,7 @@ export function ConfirmIssueDialog({ request, prepared, onIssued, onStale, onClo
         prepare: request,
         reviewToken: prepared.reviewToken,
         acknowledged: [...acked],
-        copiedFrom: null,
+        copiedFrom: copiedFrom?.id ?? null,
       })
       onIssued(issued)
     } catch (e) {
@@ -92,6 +94,12 @@ export function ConfirmIssueDialog({ request, prepared, onIssued, onStale, onClo
         <dd>{d.rrnMasked ? `뒷자리 가림 (${d.holderRrnShown})` : '전체 표시'}</dd>
         <dt>학교장 표기</dt>
         <dd>{d.issuerTitle}</dd>
+        {copiedFrom && (
+          <>
+            <dt>참고한 발급</dt>
+            <dd>{copiedFrom.issueNo} (새 증명서로 발급 — 원래 기록은 그대로)</dd>
+          </>
+        )}
       </dl>
 
       {warnings.length > 0 && (

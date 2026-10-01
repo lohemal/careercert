@@ -136,6 +136,10 @@ pub fn run() {
             commands::issuance::certificate_save_pdf,
             commands::issuance::certificate_print,
             commands::issuance::printers_list,
+            commands::history::certificate_history,
+            commands::history::certificate_copy_plan,
+            commands::history::certificate_recent,
+            commands::history::recovery_status,
             // 출력 창이 부르는 것
             commands::print::print_host_ready,
             commands::print::print_take,

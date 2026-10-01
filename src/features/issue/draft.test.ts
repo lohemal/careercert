@@ -3,7 +3,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { blockers, initialDraft, isSelected, selectedIds, selectInstructor, setField, toggle, type Draft } from './draft.ts'
+import { blockers, fromCopyPlan, initialDraft, isSelected, selectedIds, selectInstructor, setField, toggle, type Draft } from './draft.ts'
 
 const D = { purpose: '기관제출', today: '2026-10-01' }
 const FAKE_RRN = '900101-1000001' // privacy:fake
@@ -74,4 +74,59 @@ test('setField 는 원래 값을 바꾸지 않는다', () => {
   const e = setField(d, 'issueNo', '다른 번호')
   assert.equal(d.fields.issueNo, '제2026-152호')
   assert.equal(e.fields.issueNo, '다른 번호')
+})
+
+// ---------------- 이 내용으로 새 증명서 작성 ----------------
+
+const PLAN = {
+  fromId: 7,
+  instructorId: 1,
+  issuedOn: '2026-10-01',
+  purpose: '취업용',
+  maskRrn: true,
+  excludedCareerIds: [12],
+}
+
+test('새 증명서 초안은 발급번호·주민번호·주소가 빈칸이고 발급일은 오늘, 용도·표시 방식은 가져온다', () => {
+  const d = fromCopyPlan(PLAN, D)
+  assert.equal(d.fields.issueNo, '')
+  assert.equal(d.fields.rrn, '')
+  assert.equal(d.fields.address, '')
+  assert.equal(d.fields.issuedOn, '2026-10-01')
+  assert.equal(d.fields.purpose, '취업용')
+  assert.equal(d.fields.maskRrn, true)
+  assert.equal(d.copiedFrom, 7)
+  assert.equal(d.instructorId, 1)
+})
+
+test('새 증명서 초안은 원래 없던 경력만 끄고 나머지는 선택한다', () => {
+  const d = fromCopyPlan(PLAN, D)
+  const choices = [
+    { id: 11, eligible: true },
+    { id: 12, eligible: true },
+    { id: 13, eligible: false },
+  ]
+  assert.deepEqual(selectedIds(d, choices), [11])
+})
+
+test('새 증명서 초안에서 다른 강사로 바꾸면 원본 연결도 끊는다', () => {
+  const d = selectInstructor(fromCopyPlan(PLAN, D), 2, D)
+  assert.equal(d.copiedFrom, null)
+  assert.equal(d.fields.purpose, '기관제출')
+})
+
+test('원래 강사를 쓸 수 없는 초안에서 처음 강사를 고르면 가져온 값과 원본 연결을 남긴다', () => {
+  const d0 = fromCopyPlan({ ...PLAN, instructorId: null }, D)
+  assert.equal(d0.instructorId, null)
+  assert.deepEqual(d0.excluded, [])
+  const d = selectInstructor(d0, 3, D)
+  assert.equal(d.copiedFrom, 7)
+  assert.equal(d.fields.purpose, '취업용')
+  assert.equal(d.fields.maskRrn, true)
+  assert.equal(d.fields.rrn, '')
+})
+
+test('일반 초안은 원본 연결이 없다', () => {
+  assert.equal(initialDraft(D).copiedFrom, null)
+  assert.equal(selectInstructor(initialDraft(D), 1, D).copiedFrom, null)
 })

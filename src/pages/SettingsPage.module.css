@@ -36,3 +36,8 @@
   font-size: var(--fs-sm);
   word-break: break-all;
 }
+
+.recoveryNote {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}

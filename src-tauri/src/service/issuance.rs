@@ -54,6 +54,17 @@ pub const LOCAL_ACTOR: &str = "local";
 
 pub const VOID_REASON_MAX: usize = 200;
 
+/// 한 번에 인쇄할 수 있는 매수 (Phase 7 결정: 화면·서버 모두 1~5부)
+pub const MAX_COPIES: u32 = 5;
+
+pub fn check_copies(copies: u32) -> AppResult<()> {
+    if (1..=MAX_COPIES).contains(&copies) {
+        Ok(())
+    } else {
+        Err(AppError::invalid(format!("매수는 1~{MAX_COPIES}부 사이로 골라 주세요.")))
+    }
+}
+
 /// 내용 확인 표 — 개인정보가 없는 문서 표현의 SHA-256.
 pub fn review_token(doc: &CertificateDoc) -> String {
     crypto::plain_sha256(cert::canonical(doc, false).as_bytes())
@@ -68,7 +79,7 @@ pub struct IssueRequest {
     pub review_token: String,
     /// 담당자가 확인한 경고 (`Warning::ack_key`)
     pub acknowledged: Vec<String>,
-    /// "이 내용으로 새 증명서 작성" 의 원본 (Phase 7)
+    /// "이 내용으로 새 증명서 작성" 의 원본 발급 기록
     #[serde(default)]
     pub copied_from: Option<i64>,
 }
@@ -128,6 +139,13 @@ pub fn issue(conn: &Connection, req: IssueRequest, now: &str, actor: &str) -> Ap
             "CERT_ISSUE_NO_TAKEN",
             "이미 사용한 발급번호입니다(취소된 발급 포함). NEIS 에서 받은 새 번호를 입력해 주세요.",
         ));
+    }
+
+    // 4-1) "이 내용으로 새 증명서 작성" 의 원본은 있는 발급 기록이어야 한다 (내용은 읽지 않는다)
+    if let Some(from) = req.copied_from {
+        if repo::find_meta(conn, from)?.is_none() {
+            return Err(AppError::not_found("참고한 원래 발급 기록을 찾을 수 없습니다."));
+        }
     }
 
     // 5) 봉인 — 키가 없으면 이때 처음 만든다
@@ -323,11 +341,14 @@ pub fn record_output(
 ) -> AppResult<()> {
     let (output_type, printer_name, copies) = match kind {
         OutputKind::Pdf => ("PDF", None, None),
-        OutputKind::Print { copies } => (
+        OutputKind::Print { copies } => {
+            check_copies(copies)?;
+            (
             "PRINT",
             Some(printer.unwrap_or("(기본 프린터)").to_string()),
             Some(copies as i64),
-        ),
+        )
+        }
     };
     repo::add_output(
         conn,
@@ -343,17 +364,6 @@ pub fn record_output(
     )
 }
 
-/// 발급 기록 요약 — 화면용. 주민번호는 가린 값만.
-#[derive(Debug, Clone)]
-pub struct Summary {
-    pub row: repo::Row,
-    pub outputs: Vec<repo::OutputRow>,
-}
-
-pub fn summary(conn: &Connection, id: i64) -> AppResult<Summary> {
-    Ok(Summary { row: repo::get(conn, id)?, outputs: repo::outputs(conn, id)? })
-}
-
 #[cfg(test)]
 #[path = "issuance_tests.rs"]
-mod issuance_tests;
+pub(crate) mod issuance_tests;

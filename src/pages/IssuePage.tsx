@@ -1,18 +1,18 @@
-import { lazy, Suspense, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { BadgeCheck, Eye, FileCheck2, Search, Settings, UserRoundSearch } from 'lucide-react'
 
 import { Badge, Button, Card, ErrorNotice, Field, Input, Notice, Page } from '@/components/ui'
 import { useConfirm } from '@/components/useConfirm'
 import { ConfirmIssueDialog } from '@/features/issue/ConfirmIssueDialog'
 import { IssuedPanel } from '@/features/issued/IssuedPanel'
-import { blockers, initialDraft, isSelected, selectedIds, selectInstructor, setField, toggle, type Defaults, type Draft, type IssueFields } from '@/features/issue/draft'
+import { blockers, fromCopyPlan, initialDraft, isSelected, selectedIds, selectInstructor, setField, toggle, type Defaults, type Draft, type IssueFields } from '@/features/issue/draft'
 import { whoLabel } from '@/features/instructors/label'
 import { careerApi } from '@/ipc/career'
 import { certificateApi, type Prepared } from '@/ipc/certificate'
 import { instructorApi, type InstructorRow } from '@/ipc/instructor'
-import type { Issued } from '@/ipc/issuance'
+import { historyApi, type CopyPlan, type Issued } from '@/ipc/issuance'
 import { settingsApi } from '@/ipc/settings'
 import s from './IssuePage.module.css'
 
@@ -27,6 +27,9 @@ const PdfPreview = lazy(() => import('@/features/issue/PdfPreview').then((m) => 
  *     DB·localStorage·sessionStorage·React Query 캐시 어디에도 두지 않는다
  *     (내용 확인 요청은 useMutation 이 아니라 직접 부른다 — mutation 캐시가 요청 값을 들고 있으므로).
  *   * 강사를 바꾸면 주민번호·주소·발급번호를 비운다(`draft.selectInstructor`).
+ *
+ * "이 내용으로 새 증명서 작성"(Phase 7): 발급이력에서 `state.copyFrom` 으로 들어오면 서버가 만든 출발점(CopyPlan)으로
+ * 초안을 채운다 — 주민번호·주소·발급번호는 빈칸(과거 기록을 복호화하지 않는다), 발급일 오늘, 경력은 지금 원장에서.
  *
  * [발급 확정] (Phase 6) 이 끝나면 작성 중인 값을 모두 비우고, 발급 기록(`IssuedPanel`)에서만 정식 인쇄·PDF 저장을 한다.
  */
@@ -47,6 +50,15 @@ export function IssuePage() {
 
 function IssueForm({ defaults, missingSettings }: { defaults: Defaults; missingSettings: string[] }) {
   const navigate = useNavigate()
+  const qc = useQueryClient()
+  const location = useLocation()
+  // 발급이력의 [이 내용으로 새 증명서 작성] 으로 들어왔는가 (번호만 — 내용은 서버에서 받는다)
+  const [copyFrom] = useState<number | null>(() => {
+    const v = (location.state as { copyFrom?: unknown } | null)?.copyFrom
+    return typeof v === 'number' ? v : null
+  })
+  const [copyPlan, setCopyPlan] = useState<CopyPlan | null>(null)
+  const [copyError, setCopyError] = useState<unknown>(null)
   const [confirm, confirmDialog] = useConfirm()
   const [draft, setDraft] = useState<Draft>(() => initialDraft(defaults))
   const [picking, setPicking] = useState(true)
@@ -61,10 +73,27 @@ function IssueForm({ defaults, missingSettings }: { defaults: Defaults; missingS
   const [staleMessage, setStaleMessage] = useState<string | null>(null)
   const [issued, setIssued] = useState<Issued | null>(null)
 
+  useEffect(() => {
+    if (copyFrom == null) return
+    // 다시 그려도(새로 고침) 같은 초안을 또 만들지 않게 들어온 표시는 지운다
+    navigate('/issue', { replace: true, state: null })
+    historyApi.copyPlan(copyFrom).then(
+      (plan) => {
+        setCopyPlan(plan)
+        setDraft(fromCopyPlan(plan, defaults))
+        setPicking(plan.instructorId == null)
+      },
+      (e) => setCopyError(e),
+    )
+    // 들어올 때 한 번만
+  }, [])
+
   const choices = useQuery({
     queryKey: ['cert-choices', draft.instructorId, draft.fields.issuedOn],
     queryFn: () => certificateApi.choices(draft.instructorId!, draft.fields.issuedOn),
     enabled: draft.instructorId != null && !!draft.fields.issuedOn,
+    // 화면에 들어올 때마다 지금 원장을 읽는다 (다른 화면에서 보관·종료한 경력이 남아 보이지 않게)
+    staleTime: 0,
   })
   const list = choices.data ?? []
   const chosen = selectedIds(draft, list)
@@ -85,8 +114,13 @@ function IssueForm({ defaults, missingSettings }: { defaults: Defaults; missingS
     setConfirming(false)
     update(initialDraft(defaults))
     setPicking(true)
+    setCopyPlan(null)
     setIssued(r)
+    void qc.invalidateQueries({ queryKey: ['history'] })
+    void qc.invalidateQueries({ queryKey: ['certificate-recent'] })
+    void qc.invalidateQueries({ queryKey: ['recovery'] })
   }
+  const copying = copyPlan != null && draft.copiedFrom === copyPlan.fromId
 
   const runPreview = async () => {
     setPreviewing(true)
@@ -146,7 +180,16 @@ function IssueForm({ defaults, missingSettings }: { defaults: Defaults; missingS
         title="증명서 발급"
         description={issued.status === 'VOIDED' ? '발급을 취소했습니다.' : '발급 확정이 끝났습니다. 아래에서 정식 인쇄·PDF 저장을 합니다.'}
       >
-        <IssuedPanel issued={issued} onChange={setIssued} onNew={() => setIssued(null)} />
+        <IssuedPanel
+          issued={issued}
+          onChange={(r) => {
+            setIssued(r)
+            void qc.invalidateQueries({ queryKey: ['history'] })
+            void qc.invalidateQueries({ queryKey: ['certificate-recent'] })
+          }}
+          onNew={() => setIssued(null)}
+          onOpen={(id) => navigate(`/history?id=${id}`)}
+        />
       </Page>
     )
   }
@@ -164,6 +207,22 @@ function IssueForm({ defaults, missingSettings }: { defaults: Defaults; missingS
         </Notice>
       )}
 
+      <ErrorNotice error={copyError} />
+      {copying && (
+        <Card title={`이 내용으로 새 증명서 작성 — ${copyPlan.fromIssueNo} 참고`}>
+          <Notice tone={copyPlan.fromStatus === 'VOIDED' || copyPlan.unlinkedCount > 0 || copyPlan.instructorId == null ? 'warn' : 'info'}>
+            <span className={s.copyHead}>
+              새 증명서를 작성합니다. 원래 발급 건을 다시 출력하는 것이 아니며, 확정하면 새 발급번호로 새 기록이 생깁니다.
+            </span>
+            <ul className={s.copyList}>
+              {copyPlan.notices.map((n) => (
+                <li key={n}>{n}</li>
+              ))}
+            </ul>
+          </Notice>
+        </Card>
+      )}
+
       {/* ---------- 1. 강사 ---------- */}
       <Card title="1. 강사 선택">
         {picking || draft.instructorId == null ? (
@@ -178,7 +237,11 @@ function IssueForm({ defaults, missingSettings }: { defaults: Defaults; missingS
           {/* ---------- 2. 경력 ---------- */}
           <Card
             title={`2. 경력 선택 — ${chosen.length}건 선택`}
-            description="보관하지 않은 경력이 모두 선택되어 있습니다. 증명서에 넣지 않을 경력만 체크를 푸세요. 기간은 발급일 기준으로 표시합니다."
+            description={
+              copying
+                ? '참고한 발급에 들어 있던 경력을 지금 원장에서 찾아 선택해 두었습니다. 필요하면 체크를 바꾸세요. 기간은 발급일 기준으로 다시 계산합니다.'
+                : '보관하지 않은 경력이 모두 선택되어 있습니다. 증명서에 넣지 않을 경력만 체크를 푸세요. 기간은 발급일 기준으로 표시합니다.'
+            }
           >
             <ErrorNotice error={choices.error} />
             {choices.data?.length === 0 && <p className={s.muted}>이 강사에게 등록된 경력이 없습니다. 강사관리에서 먼저 넣어 주세요.</p>}
@@ -311,6 +374,7 @@ function IssueForm({ defaults, missingSettings }: { defaults: Defaults; missingS
             <ConfirmIssueDialog
               request={{ instructorId: draft.instructorId!, careerIds: chosen, issue: draft.fields }}
               prepared={prepared}
+              copiedFrom={copying ? { id: copyPlan.fromId, issueNo: copyPlan.fromIssueNo } : null}
               onIssued={onIssued}
               onStale={(message) => {
                 setConfirming(false)

@@ -61,3 +61,26 @@ test('증명서·주민번호·작성 명령 모듈은 로그를 남기지 않�
   assert.ok(pii.length >= 3, `대상 ${pii.length}개`)
   assert.deepEqual(find(pii, /\blog::/), [])
 })
+
+// Phase 7 — 발급이력(목록·상세·새 증명서 작성·대시보드·복구 상태)은 복호화하지 않는다.
+// 복호화는 service::issuance 의 정식 출력 길(reconstruct → for_output)에만 있다.
+test('발급이력 모듈은 복호화 함수를 부르지 않고 암호문 칸도 읽지 않는다', () => {
+  const files = ['service/history.rs', 'commands/history.rs'].map((f) => join(ROOT, 'src-tauri', 'src', f))
+  assert.deepEqual(
+    find(files, /\b(reconstruct|for_output|crypto::open|unprotect|keys::get|keys::current|sensitive_\w+|from_row|repo::get\b|repo::find\b)/),
+    [],
+  )
+})
+
+test('발급이력 목록·상세용 SQL(META_COLS)에 암호문·키·지문 칸이 없다', () => {
+  const src = readFileSync(join(ROOT, 'src-tauri', 'src', 'repo', 'certificate.rs'), 'utf8')
+  const m = src.match(/const META_COLS: &str = "([^"]+)"/)
+  assert.ok(m, 'META_COLS 를 찾지 못했다')
+  for (const col of ['sensitive_nonce', 'sensitive_cipher', 'key_id', 'doc_hash']) assert.ok(!m[1].includes(col), col)
+})
+
+test('발급이력 화면도 useMutation 을 쓰지 않는다', () => {
+  const pages = ui.filter((f) => /[\\/]HistoryPage\.tsx$/.test(f))
+  assert.equal(pages.length, 1)
+  assert.deepEqual(find(pages, /\buseMutation\b/), [])
+})

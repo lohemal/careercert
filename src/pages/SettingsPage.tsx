@@ -4,6 +4,7 @@ import { RotateCcw, Save, Wand2 } from 'lucide-react'
 
 import { Badge, Button, Card, ErrorNotice, Field, Input, Notice, Page } from '@/components/ui'
 import type { AppInfo } from '@/ipc/app'
+import { historyApi } from '@/ipc/issuance'
 import {
   DEFAULT_PURPOSE,
   DEFAULT_TITLE,
@@ -44,6 +45,8 @@ export function SettingsPage({ info }: Props) {
   const qc = useQueryClient()
   const query = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
   const saved = query.data?.settings
+  // 암호화 자료의 이동용 복구 설정 상태 — 키나 암호문은 오지 않는다(상태와 안내 글만)
+  const recovery = useQuery({ queryKey: ['recovery'], queryFn: historyApi.recovery, staleTime: 0 })
 
   const [form, setForm] = useState<SettingsInput | null>(null)
   // 저장 직후 알릴 말 — 다시 고치기 시작하면 지운다
@@ -238,6 +241,22 @@ export function SettingsPage({ info }: Props) {
       </Card>
 
       <Card title="데이터 관리" description="자료는 이 컴퓨터에만 저장됩니다. 백업·복원·엑셀 가져오기는 이후 단계에서 이 자리에 더합니다.">
+        <ErrorNotice error={recovery.error} />
+        {recovery.data && (
+          <Notice tone={recovery.data.ready ? 'success' : 'warn'}>
+            <b>암호화 자료 복구 설정: {recovery.data.ready ? '준비됨' : '설정되지 않음'}</b>
+            <br />
+            {recovery.data.message}
+            {!recovery.data.ready && (
+              <>
+                <br />
+                <span className={s.recoveryNote}>
+                  Windows 를 다시 설치하거나 다른 PC·다른 사용자 계정으로 자료 파일만 옮기면 발급 기록의 주민등록번호·주소를 열 수 없습니다(발급번호·성명·경력 등 나머지는 그대로 보입니다).
+                </span>
+              </>
+            )}
+          </Notice>
+        )}
         <dl className={s.facts}>
           <dt>실행 종류</dt>
           <dd>{info.sandbox ? <Badge tone="warn">연습용 — 실제 자료와 따로 저장</Badge> : '실제 자료'}</dd>
