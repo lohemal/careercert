@@ -17,7 +17,7 @@ fn 빈_db에_최신_스키마가_만들어진다() {
     run(&mut conn, Path::new(":memory:")).unwrap();
     assert_eq!(current_version(&conn).unwrap(), latest_version());
     let t = tables(&conn);
-    for name in ["app_meta", "school_settings"] {
+    for name in ["app_meta", "school_settings", "imports", "instructors", "careers"] {
         assert!(t.contains(&name.to_string()), "표 {name} 가 없다");
     }
 }

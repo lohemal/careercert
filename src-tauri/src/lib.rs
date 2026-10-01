@@ -5,13 +5,17 @@
 //!   db/        연결 · 마이그레이션 · 백업
 //!   domain/    업무 규칙 (DB·Tauri 를 모름)
 //!   repo/      SQL
-//!   (이후 Phase) service/ · render/ · print/ · crypto/
+//!   service/   업무 절차 (읽고 → domain 으로 판단 → repo 로 쓰기)
+//!   (이후 Phase) render/ · print/ · crypto/
 
 mod commands;
 mod db;
 mod domain;
 pub mod error;
 mod repo;
+// Phase 3 화면 명령이 붙기 전까지는 시험만 쓴다
+#[cfg_attr(not(test), allow(dead_code))]
+mod service;
 
 use std::sync::{Arc, Mutex};
 

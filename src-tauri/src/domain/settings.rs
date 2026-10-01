@@ -11,10 +11,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, AppResult};
 
+// 아래 두 기본값의 실제 출처는 마이그레이션 002 의 DEFAULT 다. 여기 값은 시험이 둘이 같은지
+// 확인하는 데 쓴다(프로그램 코드는 아직 읽지 않는다).
+
 /// 문서 제목 기본값 (기존 양식의 제목, 결정 D1)
+#[cfg_attr(not(test), allow(dead_code))]
 pub const DEFAULT_TITLE: &str = "방과후학교 개인위탁 외부강사 활동 확인서";
 
 /// 용도 기본값
+#[cfg_attr(not(test), allow(dead_code))]
 pub const DEFAULT_PURPOSE: &str = "기관제출";
 
 /// 한 칸에 받을 수 있는 최대 글자 수. 양식 한 줄에 들어가지 않는 길이는 입력 실수로 본다.
