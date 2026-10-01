@@ -15,6 +15,7 @@ function filled(): Draft {
   d = setField(d, 'issueNo', '제2026-152호')
   d = setField(d, 'purpose', '취업용')
   d = setField(d, 'issuedOn', '2026-09-30')
+  d = setField(d, 'maskRrn', true)
   return d
 }
 
@@ -27,6 +28,7 @@ test('강사를 바꾸면 주민번호·주소·발급번호를 비우고 용도
   assert.equal(after.fields.issueNo, '')
   assert.equal(after.fields.purpose, '기관제출')
   assert.equal(after.fields.issuedOn, '2026-10-01')
+  assert.equal(after.fields.maskRrn, false, '뒷자리 가림도 기본값(꺼짐)으로')
   assert.deepEqual(after.excluded, [], '경력 선택도 기본(전부)으로')
 })
 

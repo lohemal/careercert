@@ -21,12 +21,14 @@ rusqlite = { version = "0.32", features = ["bundled", "backup"] }
 chrono = { version = "0.4", features = ["serde"] }
 log = "0.4"
 uuid = { version = "1", features = ["v4"] }
+# 출력 창과 주고받는 신호(한 번에 한 작업, 시간 제한). tauri 가 이미 쓰는 tokio 다.
+tokio = { version = "1", features = ["sync", "time"] }
 
 # WebView2 설정을 직접 바꾸려고(입력 자동완성 저장 끄기 — 주민번호·주소가 브라우저 프로필에 남지 않게).
 # 버전은 tauri/wry 가 쓰는 것과 같게 둔다(Cargo.lock 의 webview2-com 0.39 · windows 0.62).
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.39"
-windows = "0.62"
+windows = { version = "0.62", features = ["Win32_System_Com", "Win32_Graphics_Printing"] }
 
 [profile.release]
 codegen-units = 1

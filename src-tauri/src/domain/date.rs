@@ -93,6 +93,11 @@ pub fn display(d: NaiveDate) -> String {
     format!("{:04}.{:02}.{:02}", d.year(), d.month(), d.day())
 }
 
+/// 공문서 날짜 표기 `2026. 10. 1.` — 증명서의 발급일 줄에 쓴다(행정 문서의 날짜 쓰는 법).
+pub fn display_official(d: NaiveDate) -> String {
+    format!("{}. {}. {}.", d.year(), d.month(), d.day())
+}
+
 /// 종료 쪽 표시. 종료일이 없으면 `현재`.
 pub fn display_end(end: Option<NaiveDate>) -> String {
     match end {

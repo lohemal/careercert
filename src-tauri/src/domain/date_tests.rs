@@ -143,6 +143,12 @@ fn 현재라는_말은_날짜가_아니라_재직중_표시다() {
 }
 
 #[test]
+fn 공문서_날짜는_0을_채우지_않고_온점으로_쓴다() {
+    assert_eq!(display_official(ymd(2026, 10, 1)), "2026. 10. 1.");
+    assert_eq!(display_official(ymd(2027, 2, 12)), "2027. 2. 12.");
+}
+
+#[test]
 fn 시각에서_오늘을_뽑는다() {
     assert_eq!(today_of("2026-10-01T09:00:00"), Ok(ymd(2026, 10, 1)));
     assert!(today_of("").is_err());

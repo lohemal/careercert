@@ -223,3 +223,15 @@
 .docTitle {
   font-weight: 700;
 }
+
+.maskRow {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  cursor: pointer;
+}
+
+.maskRow input {
+  margin-top: 4px;
+}

@@ -17,5 +17,12 @@ export default defineConfig({
   build: {
     target: 'chrome110',
     sourcemap: false,
+    // 화면(index.html)과 숨은 출력 창(print.html) 두 쪽
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        print: path.resolve(__dirname, 'print.html'),
+      },
+    },
   },
 })

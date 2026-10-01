@@ -97,6 +97,9 @@ pub struct IssueInput {
     pub purpose: String,
     /// `YYYY-MM-DD`
     pub issued_on: String,
+    /// 증명서에 주민번호 뒷자리를 가려 찍는가 (기본 꺼짐 = 전체 표시)
+    #[serde(default)]
+    pub mask_rrn: bool,
 }
 
 impl std::fmt::Debug for IssueInput {
@@ -107,7 +110,27 @@ impl std::fmt::Debug for IssueInput {
             .field("issue_no", &self.issue_no)
             .field("purpose", &self.purpose)
             .field("issued_on", &self.issued_on)
+            .field("mask_rrn", &self.mask_rrn)
             .finish()
+    }
+}
+
+/// 증명서에 주민번호를 어떻게 찍는가. 원본(`Holder::rrn`)은 언제나 전체다 — 이 값은 **표시 방식**이다.
+/// 발급 기록(Phase 6)에 함께 저장해, 그 증명서가 어떤 방식으로 나갔는지 남긴다.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RrnDisplay {
+    /// `YYMMDD-NNNNNNN` (전체)
+    Full,
+    /// `YYMMDD-N******` (뒷자리 가림)
+    MaskBack,
+}
+
+impl RrnDisplay {
+    pub fn code(self) -> &'static str {
+        match self {
+            RrnDisplay::Full => "FULL",
+            RrnDisplay::MaskBack => "MASK_BACK",
+        }
     }
 }
 
@@ -162,6 +185,8 @@ pub struct CertificateDoc {
     pub issued_on: NaiveDate,
     pub purpose: String,
     pub holder: Holder,
+    /// 주민번호 표시 방식 (원본은 holder.rrn 그대로)
+    pub rrn_display: RrnDisplay,
     pub items: Vec<CertItem>,
     pub school: SchoolBlock,
 }
@@ -169,7 +194,7 @@ pub struct CertificateDoc {
 /// 막지는 않지만 담당자가 알아야 할 것.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Warning {
-    /// ISSUE_IN_FUTURE · ISSUE_FAR_PAST · ENDS_AFTER_ISSUE · RRN_BIRTH_DATE
+    /// ISSUE_FAR_PAST · ENDS_AFTER_ISSUE · RRN_BIRTH_DATE
     pub code: &'static str,
     pub message: String,
     /// 특정 경력에 걸린 경고면 그 번호
@@ -191,7 +216,7 @@ fn err(code: &str, msg: impl Into<String>) -> AppError {
 /// * `careers` — 담당자가 고른 경력(순서 무관, 같은 번호 여러 번 무관). 모두 이 강사의 것이고,
 ///   보관되지 않았고, 발급일에 이미 시작했어야 한다. 하나라도 아니면 **만들지 않는다.**
 /// * `school` — 지금 학교 설정. 증명서에 찍히는 칸이 비어 있으면 만들지 않는다.
-/// * `today` — 경고(발급일이 미래·너무 과거)에만 쓴다.
+/// * `today` — 발급일이 오늘보다 뒤면 **거부**하고(Phase 5 결정), 1년 넘게 과거면 경고한다.
 pub fn build(
     instructor: &Instructor,
     careers: &[Career],
@@ -216,6 +241,16 @@ pub fn build(
     // ---- 발급 정보 ----
     let issued_on = date::parse_iso(&input.issued_on)
         .map_err(|e| err(e.code(), format!("발급일: {}", e.message())))?;
+    if issued_on > today {
+        return Err(err(
+            "CERT_ISSUE_IN_FUTURE",
+            format!(
+                "발급일({})이 오늘({})보다 뒤입니다. 미래 날짜로는 발급할 수 없습니다.",
+                date::display(issued_on),
+                date::display(today)
+            ),
+        ));
+    }
     let issue_no = input.issue_no.trim().to_string(); // 앞뒤 공백 말고는 손대지 않는다 (D9)
     if issue_no.is_empty() {
         return Err(err("CERT_ISSUE_NO_REQUIRED", "발급번호를 입력해 주세요. NEIS 민원 등록 후 받은 번호를 그대로 적습니다."));
@@ -286,13 +321,7 @@ pub fn build(
     }
 
     // ---- 경고 ----
-    if issued_on > today {
-        warnings.insert(0, Warning {
-            code: "ISSUE_IN_FUTURE",
-            message: format!("발급일({})이 오늘보다 뒤입니다.", date::display(issued_on)),
-            career_id: None,
-        });
-    } else if (today - issued_on).num_days() > 365 {
+    if (today - issued_on).num_days() > 365 {
         warnings.insert(0, Warning {
             code: "ISSUE_FAR_PAST",
             message: format!("발급일({})이 1년도 더 지난 날입니다.", date::display(issued_on)),
@@ -319,6 +348,7 @@ pub fn build(
                 rrn,
                 address,
             },
+            rrn_display: if input.mask_rrn { RrnDisplay::MaskBack } else { RrnDisplay::Full },
             items,
             school: SchoolBlock {
                 issuer_title: school.issuer_title.clone(),
@@ -329,6 +359,44 @@ pub fn build(
         },
         warnings,
     })
+}
+
+/// 정식 PDF 의 기본 파일 이름 `경력증명서_김으뜸_제2026-152호.pdf`.
+///
+/// * 성명과 발급번호**만** 쓴다 — 주민번호·주소는 절대 넣지 않는다.
+/// * Windows 가 받지 않는 글자(`\ / : * ? " < > |`, 제어 문자)는 `_` 로 바꾼다. **파일 이름에서만**
+///   바꾸는 것이고 발급번호 값 자체는 그대로다(D9).
+/// * 끝의 점·공백을 떼고, 장치 이름(CON·PRN·AUX·NUL·COM1… LPT1…)은 피하고, 너무 길면 자른다.
+pub fn pdf_file_name(doc: &CertificateDoc) -> String {
+    let stem = format!("경력증명서_{}_{}", safe_part(&doc.holder.name), safe_part(&doc.issue_no));
+    let stem: String = stem.chars().take(120).collect();
+    let stem = stem.trim_end_matches(['.', ' ']).to_string();
+    format!("{stem}.pdf")
+}
+
+fn safe_part(s: &str) -> String {
+    let cleaned: String = s
+        .trim()
+        .chars()
+        .map(|c| match c {
+            '\\' | '/' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
+            c if c.is_control() => '_',
+            c => c,
+        })
+        .collect();
+    let cleaned = cleaned.trim_matches(['.', ' ']).to_string();
+    let upper = cleaned.to_ascii_uppercase();
+    let reserved = matches!(upper.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || ((upper.starts_with("COM") || upper.starts_with("LPT"))
+            && upper.len() == 4
+            && upper.as_bytes()[3].is_ascii_digit());
+    if cleaned.is_empty() {
+        "_".into()
+    } else if reserved {
+        format!("_{cleaned}")
+    } else {
+        cleaned
+    }
 }
 
 #[cfg(test)]

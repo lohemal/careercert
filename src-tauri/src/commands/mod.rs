@@ -4,6 +4,7 @@ pub mod career;
 pub mod certificate;
 pub mod dashboard;
 pub mod instructor;
+pub mod print;
 pub mod settings;
 
 /// 지금 시각 `YYYY-MM-DDTHH:MM:SS` (현지). service 에 넘기는 시각은 언제나 이것이다.

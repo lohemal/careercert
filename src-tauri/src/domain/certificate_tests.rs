@@ -72,6 +72,7 @@ fn input(issued_on: &str) -> IssueInput {
         issue_no: "제2026-152호".into(),
         purpose: "기관제출".into(),
         issued_on: issued_on.into(),
+        mask_rrn: false,
     }
 }
 
@@ -291,7 +292,16 @@ fn 학교_설정의_지금_값이_들어간다() {
 }
 
 #[test]
-fn 발급일이_미래거나_너무_과거면_알린다() {
+fn 미래_발급일은_거부한다() {
+    let list = [career(1, ymd(2024, 3, 8), Term::Active)];
+    let e = build(&who(), &list, input("2026-10-02"), &school(), today()).unwrap_err();
+    assert_eq!(e.code, "CERT_ISSUE_IN_FUTURE");
+    assert!(e.user_message.contains("2026.10.02") && e.user_message.contains("2026.10.01"), "{}", e.user_message);
+    assert!(build(&who(), &list, input("2026-10-01"), &school(), today()).is_ok(), "오늘은 된다");
+}
+
+#[test]
+fn 과거_발급일은_받고_너무_오래되면_알린다() {
     let list = [career(1, ymd(2024, 3, 8), Term::Active)];
     let codes = |on: &str| -> Vec<&'static str> {
         build(&who(), &list, input(on), &school(), today())
@@ -301,9 +311,48 @@ fn 발급일이_미래거나_너무_과거면_알린다() {
             .map(|w| w.code)
             .collect()
     };
-    assert_eq!(codes("2026-10-02"), vec!["ISSUE_IN_FUTURE"]);
     assert_eq!(codes("2025-09-30"), vec!["ISSUE_FAR_PAST"]);
-    assert!(codes("2026-10-01").is_empty());
+    assert!(codes("2026-09-30").is_empty());
+}
+
+#[test]
+fn 주민번호_표시_방식은_원본과_따로_담긴다() {
+    let list = [career(1, ymd(2024, 3, 8), Term::Active)];
+    let full = build(&who(), &list, input("2026-10-01"), &school(), today()).unwrap().doc;
+    assert_eq!(full.rrn_display, RrnDisplay::Full, "기본은 전체 표시");
+    let mut v = input("2026-10-01");
+    v.mask_rrn = true;
+    let masked = build(&who(), &list, v, &school(), today()).unwrap().doc;
+    assert_eq!(masked.rrn_display, RrnDisplay::MaskBack);
+    assert_eq!(masked.holder.rrn.as_str(), FAKE_RRN, "원본은 바꾸지 않는다");
+    assert_eq!((RrnDisplay::Full.code(), RrnDisplay::MaskBack.code()), ("FULL", "MASK_BACK"));
+}
+
+#[test]
+fn pdf_파일_이름에는_성명과_발급번호만_들어가고_못_쓰는_글자는_바꾼다() {
+    let list = [career(1, ymd(2024, 3, 8), Term::Active)];
+    let name = |no: &str, holder: &str| {
+        let mut v = input("2026-10-01");
+        v.issue_no = no.into();
+        let mut w = who();
+        w.name = holder.into();
+        let d = build(&w, &list, v, &school(), today()).unwrap().doc;
+        (pdf_file_name(&d), d.issue_no)
+    };
+    let (file, kept) = name("제2026-152호", "김으뜸");
+    assert_eq!(file, "경력증명서_김으뜸_제2026-152호.pdf");
+    assert_eq!(kept, "제2026-152호");
+
+    let (file, kept) = name("2026/152:가*?", "김\"으뜸|");
+    assert_eq!(file, "경력증명서_김_으뜸__2026_152_가__.pdf");
+    assert_eq!(kept, "2026/152:가*?", "발급번호 값 자체는 그대로");
+
+    assert_eq!(name("CON", "가").0, "경력증명서_가__CON.pdf", "장치 이름은 피한다");
+    assert_eq!(name("발급...", "가").0, "경력증명서_가_발급.pdf", "끝의 점은 뗀다");
+    assert_eq!(name(&"가".repeat(50), &"나".repeat(100)).0.chars().count(), 124, "120자 + .pdf 로 자른다");
+
+    let (file, _) = name("제2026-152호", "김으뜸");
+    assert!(!file.contains("900101") && !file.contains("○○로"), "주민번호·주소는 넣지 않는다"); // privacy:fake
 }
 
 #[test]

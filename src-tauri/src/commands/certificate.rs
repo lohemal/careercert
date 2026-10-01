@@ -83,6 +83,9 @@ pub struct DocView {
     pub purpose: String,
     pub holder_name: String,
     pub holder_rrn: String,
+    /// 증명서에 찍힐 모양 (전체 / 뒷자리 가림) — render 가 만든다
+    pub holder_rrn_shown: String,
+    pub rrn_masked: bool,
     pub holder_address: String,
     pub items: Vec<ItemView>,
     pub issuer_title: String,
@@ -93,7 +96,10 @@ pub struct DocView {
 
 impl From<CertificateDoc> for DocView {
     fn from(d: CertificateDoc) -> Self {
+        let shown = crate::render::rrn_text(&d);
         DocView {
+            holder_rrn_shown: shown,
+            rrn_masked: d.rrn_display == crate::domain::certificate::RrnDisplay::MaskBack,
             template_version: d.template_version,
             title: d.title,
             issue_no: d.issue_no,
@@ -135,6 +141,22 @@ pub struct WarningView {
 pub struct PreparedView {
     pub doc: DocView,
     pub warnings: Vec<WarningView>,
+}
+
+/// 실제 출력 미리보기 — 작성 중 내용으로 **'발급 전 미리보기' PDF** 를 만든다(정식 출력 아님).
+///
+/// `certificate_prepare` 와 같은 검사를 지난 내용만 그린다. PDF 는 메모리로만 오가고 파일로 남지 않는다.
+#[tauri::command]
+pub async fn certificate_preview(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    request: PrepareRequest,
+) -> AppResult<tauri::ipc::Response> {
+    let now = now();
+    let Built { doc, .. } = state.db.read(|c| service::prepare(c, request, &now))?;
+    let engine = state.print.clone();
+    let pdf = crate::print::output::draft_preview_pdf(&engine, &app, &doc).await?;
+    Ok(tauri::ipc::Response::new(pdf))
 }
 
 #[tauri::command]

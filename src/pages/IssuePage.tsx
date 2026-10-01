@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { FileCheck2, Search, Settings, UserRoundSearch } from 'lucide-react'
+import { Eye, FileCheck2, Search, Settings, UserRoundSearch } from 'lucide-react'
 
 import { Badge, Button, Card, ErrorNotice, Field, Input, Notice, Page } from '@/components/ui'
 import { useConfirm } from '@/components/useConfirm'
@@ -12,6 +12,9 @@ import { certificateApi, type Prepared } from '@/ipc/certificate'
 import { instructorApi, type InstructorRow } from '@/ipc/instructor'
 import { settingsApi } from '@/ipc/settings'
 import s from './IssuePage.module.css'
+
+// pdf.js 는 미리보기를 열 때만 읽는다 (첫 화면을 무겁게 하지 않으려고)
+const PdfPreview = lazy(() => import('@/features/issue/PdfPreview').then((m) => ({ default: m.PdfPreview })))
 
 /**
  * 증명서 작성 (Phase 4) — 강사 선택 → 경력 선택 → 발급 정보 → [증명서 내용 확인].
@@ -47,6 +50,10 @@ function IssueForm({ defaults, missingSettings }: { defaults: Defaults; missingS
   const [prepared, setPrepared] = useState<Prepared | null>(null)
   const [prepareError, setPrepareError] = useState<unknown>(null)
   const [preparing, setPreparing] = useState(false)
+  // 실제 출력 미리보기 PDF — 화면 메모리에만. 닫거나 무엇이든 바꾸면 버린다
+  const [previewPdf, setPreviewPdf] = useState<ArrayBuffer | null>(null)
+  const [previewing, setPreviewing] = useState(false)
+  const [previewError, setPreviewError] = useState<unknown>(null)
 
   const choices = useQuery({
     queryKey: ['cert-choices', draft.instructorId, draft.fields.issuedOn],
@@ -62,8 +69,22 @@ function IssueForm({ defaults, missingSettings }: { defaults: Defaults; missingS
     setDraft(next)
     setPrepared(null)
     setPrepareError(null)
+    setPreviewPdf(null)
+    setPreviewError(null)
   }
-  const set = (k: keyof IssueFields, v: string) => update(setField(draft, k, v))
+
+  const runPreview = async () => {
+    setPreviewing(true)
+    setPreviewError(null)
+    try {
+      setPreviewPdf(await certificateApi.preview({ instructorId: draft.instructorId!, careerIds: chosen, issue: draft.fields }))
+    } catch (e) {
+      setPreviewError(e)
+    } finally {
+      setPreviewing(false)
+    }
+  }
+  const set = (k: Exclude<keyof IssueFields, 'maskRrn'>, v: string) => update(setField(draft, k, v))
 
   const hasTyped = !!(draft.fields.rrn || draft.fields.address || draft.fields.issueNo)
 
@@ -218,9 +239,20 @@ function IssueForm({ defaults, missingSettings }: { defaults: Defaults; missingS
               <Field label="용도" hint={`기본값: ${defaults.purpose}`}>
                 <Input value={draft.fields.purpose} onChange={(e) => set('purpose', e.target.value)} autoComplete="off" />
               </Field>
-              <Field label="발급일" hint="기본값은 오늘입니다. 바꾸면 경력 기간과 선택할 수 있는 경력이 다시 계산됩니다.">
-                <Input type="date" value={draft.fields.issuedOn} onChange={(e) => set('issuedOn', e.target.value)} />
+              <Field label="발급일" hint="기본값은 오늘입니다. 미래 날짜는 쓸 수 없습니다. 바꾸면 경력 기간과 선택할 수 있는 경력이 다시 계산됩니다.">
+                <Input type="date" value={draft.fields.issuedOn} max={defaults.today} onChange={(e) => set('issuedOn', e.target.value)} />
               </Field>
+              <label className={s.maskRow}>
+                <input
+                  type="checkbox"
+                  checked={draft.fields.maskRrn}
+                  onChange={(e) => update(setField(draft, 'maskRrn', e.target.checked))}
+                />
+                <span>
+                  <b>주민등록번호 뒷자리 가림</b>
+                  <span className={s.sub}>켜면 증명서에 000000-0****** 처럼 뒷자리 여섯 자리를 가려 찍습니다. 입력한 번호는 바뀌지 않습니다.</span>
+                </span>
+              </label>
             </form>
           </Card>
 
@@ -232,7 +264,23 @@ function IssueForm({ defaults, missingSettings }: { defaults: Defaults; missingS
             </Button>
           </div>
           <ErrorNotice error={prepareError} />
-          {prepared && <PreparedView prepared={prepared} />}
+          {prepared && (
+            <>
+              <PreparedView prepared={prepared} />
+              <div className={s.actions}>
+                <span className={s.blocked}>인쇄·PDF 저장은 발급 확정 후에 할 수 있습니다.</span>
+                <Button variant="primary" icon={Eye} onClick={runPreview} disabled={previewing}>
+                  {previewing ? 'PDF 만드는 중…' : '실제 출력 미리보기'}
+                </Button>
+              </div>
+              <ErrorNotice error={previewError} />
+            </>
+          )}
+          {previewPdf && (
+            <Suspense fallback={null}>
+              <PdfPreview pdf={previewPdf} onClose={() => setPreviewPdf(null)} />
+            </Suspense>
+          )}
         </>
       )}
       {confirmDialog}
@@ -307,7 +355,10 @@ function PreparedView({ prepared }: { prepared: Prepared }) {
         <dt>성명</dt>
         <dd>{d.holderName}</dd>
         <dt>주민등록번호</dt>
-        <dd className="selectable">{d.holderRrn}</dd>
+        <dd className="selectable">
+          {d.holderRrnShown}
+          {d.rrnMasked && <span className={s.sub}>증명서에 뒷자리를 가려 찍습니다 (입력한 번호: {d.holderRrn})</span>}
+        </dd>
         <dt>주소</dt>
         <dd className="selectable">{d.holderAddress}</dd>
       </dl>
@@ -347,9 +398,7 @@ function PreparedView({ prepared }: { prepared: Prepared }) {
           {d.department} · {d.managerName} (인) · {d.phone}
         </dd>
       </dl>
-      <Notice tone="success">
-        내용 확인을 마쳤습니다. 출력 준비가 끝났습니다 — 증명서 미리보기·인쇄·PDF 는 다음 단계에서 연결됩니다.
-      </Notice>
+      <Notice tone="success">내용 확인을 마쳤습니다. [실제 출력 미리보기] 로 증명서 모양을 확인할 수 있습니다.</Notice>
     </Card>
   )
 }

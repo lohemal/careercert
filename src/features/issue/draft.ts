@@ -2,7 +2,7 @@
  * 증명서 작성 중인 값 — **화면 메모리에만** 있다. 저장하지 않는다(DB·localStorage·sessionStorage 모두 아님).
  *
  * 규칙 (Phase 4 결정)
- *   * 강사를 바꾸면 주민번호·주소·발급번호를 **비운다**. 용도·발급일은 학교 기본값·오늘로 되돌린다.
+ *   * 강사를 바꾸면 주민번호·주소·발급번호를 **비운다**. 용도·발급일은 학교 기본값·오늘로, 뒷자리 가림은 꺼짐으로 되돌린다.
  *     앞 사람의 주민번호가 다음 사람 증명서로 넘어가는 일을 구조적으로 막는다(기존 엑셀의 E1 문제).
  *   * 경력은 기본으로 **전부 선택**이다. 사용자가 끈 것만 기억한다(`excluded`).
  *     발급일 때문에 넣을 수 없는 경력은 선택에서 빠지고, 발급일을 바꿔 넣을 수 있게 되면 다시 선택된다.
@@ -18,6 +18,8 @@ export interface IssueFields {
   purpose: string
   /** YYYY-MM-DD */
   issuedOn: string
+  /** 증명서에 주민번호 뒷자리를 가려 찍는가 (기본 꺼짐 = 전체) */
+  maskRrn: boolean
 }
 
 export interface Draft {
@@ -41,7 +43,7 @@ export interface ChoiceLike {
 }
 
 export function emptyFields(d: Defaults): IssueFields {
-  return { rrn: '', address: '', issueNo: '', purpose: d.purpose, issuedOn: d.today }
+  return { rrn: '', address: '', issueNo: '', purpose: d.purpose, issuedOn: d.today, maskRrn: false }
 }
 
 export function initialDraft(d: Defaults): Draft {

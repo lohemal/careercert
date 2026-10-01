@@ -22,6 +22,8 @@ export interface IssueFields {
   purpose: string
   /** YYYY-MM-DD */
   issuedOn: string
+  /** 주민번호 뒷자리 가림 */
+  maskRrn: boolean
 }
 
 export interface PrepareRequest {
@@ -48,6 +50,9 @@ export interface Doc {
   purpose: string
   holderName: string
   holderRrn: string
+  /** 증명서에 찍힐 모양 (Rust render 가 만든다) */
+  holderRrnShown: string
+  rrnMasked: boolean
   holderAddress: string
   items: DocItem[]
   issuerTitle: string
@@ -75,4 +80,6 @@ export const certificateApi = {
    * 요청 값(주민번호·주소)을 화면을 떠난 뒤에도 몇 분 들고 있기 때문이다. 화면 state 로만 다룬다.
    */
   prepare: (request: PrepareRequest) => invoke<Prepared>('certificate_prepare', { request }),
+  /** 실제 출력 미리보기 — '발급 전 미리보기' 워터마크가 들어간 PDF (ArrayBuffer). 이것도 직접 부른다 */
+  preview: (request: PrepareRequest) => invoke<ArrayBuffer>('certificate_preview', { request }),
 }

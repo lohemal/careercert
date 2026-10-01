@@ -262,6 +262,7 @@ dependencies = [
  "serde_json",
  "tauri",
  "tauri-build",
+ "tokio",
  "uuid",
  "webview2-com",
  "windows",

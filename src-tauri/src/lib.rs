@@ -13,6 +13,8 @@ mod db;
 mod domain;
 pub mod error;
 mod repo;
+mod print;
+mod render;
 mod service;
 mod webview;
 
@@ -31,6 +33,8 @@ pub struct AppState {
     pub startup: Mutex<Vec<StartupNote>>,
     /// WebView2 입력 자동완성 저장을 껐는가 (설정 → 데이터 관리가 보여 준다)
     pub autofill_off: webview::AutofillState,
+    /// 출력 엔진 (숨은 출력 창 하나)
+    pub print: Arc<print::Engine>,
 }
 
 impl AppState {
@@ -88,13 +92,14 @@ pub fn run() {
             }
 
             let autofill_off = webview::AutofillState::default();
-            webview::disable_autofill(app, autofill_off.clone());
+            webview::harden_main(app, autofill_off.clone());
 
             app.manage(AppState {
                 db: Arc::new(db),
                 sandbox,
                 startup: Mutex::new(notes),
                 autofill_off,
+                print: Arc::new(print::Engine::default()),
             });
             Ok(())
         })
@@ -121,6 +126,12 @@ pub fn run() {
             // 증명서 작성 (읽기만 — 발급 기록 저장은 Phase 6)
             commands::certificate::certificate_choices,
             commands::certificate::certificate_prepare,
+            commands::certificate::certificate_preview,
+            // 출력 창이 부르는 것
+            commands::print::print_host_ready,
+            commands::print::print_take,
+            commands::print::print_loaded,
+            commands::print::dev_print_spike,
             // 일괄 종료
             commands::bulk_end::bulk_end_candidates,
             commands::bulk_end::bulk_end_preview,

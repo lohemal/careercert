@@ -80,6 +80,7 @@ fn issue(on: &str) -> IssueInput {
         issue_no: " 제2026-152호 ".into(),
         purpose: "기관제출".into(),
         issued_on: on.into(),
+        mask_rrn: false,
     }
 }
 
