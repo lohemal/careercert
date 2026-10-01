@@ -17,6 +17,11 @@ pub enum Action {
     BulkEnd,
     CertificateIssue,
     CertificateVoid,
+    RecoverySet,
+    RecoveryChange,
+    BackupExport,
+    Restore,
+    Import,
 }
 
 impl Action {
@@ -34,6 +39,11 @@ impl Action {
             Action::BulkEnd => "BULK_END",
             Action::CertificateIssue => "CERTIFICATE_ISSUE",
             Action::CertificateVoid => "CERTIFICATE_VOID",
+            Action::RecoverySet => "RECOVERY_SET",
+            Action::RecoveryChange => "RECOVERY_CHANGE",
+            Action::BackupExport => "BACKUP_EXPORT",
+            Action::Restore => "RESTORE",
+            Action::Import => "IMPORT",
         }
     }
 
@@ -50,6 +60,9 @@ impl Action {
             | Action::CareerUnarchive => "career",
             Action::BulkEnd => "bulk_end",
             Action::CertificateIssue | Action::CertificateVoid => "certificate",
+            Action::RecoverySet | Action::RecoveryChange => "recovery",
+            Action::BackupExport | Action::Restore => "backup",
+            Action::Import => "import",
         }
     }
 }

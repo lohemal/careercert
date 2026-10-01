@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { History, Settings } from 'lucide-react'
+import { History, KeyRound, Settings } from 'lucide-react'
 
 import { Button, Card, ErrorNotice, Notice, Page } from '@/components/ui'
+import { RECOVERY_NOT_SET_WARNING } from '@/features/data/RecoverySection'
 import { whoLabel } from '@/features/instructors/label'
 import type { AppInfo } from '@/ipc/app'
 import { dashboardApi } from '@/ipc/dashboard'
@@ -28,6 +29,9 @@ export function DashboardPage({ info, settings, settingsError }: Props) {
   const school = settings?.settings
   const o = overview.data
   const recent = useQuery({ queryKey: ['certificate-recent'], queryFn: historyApi.recent })
+  // 발급 기록이 있는데 복구 비밀번호가 없으면 계속 알린다 (설정하면 사라진다)
+  const recovery = useQuery({ queryKey: ['recovery'], queryFn: historyApi.recovery })
+  const needsRecovery = !!recovery.data && !recovery.data.ready && recovery.data.certificates > 0
   const r = recent.data
   const openCert = (id: number) => navigate(`/history?id=${id}`)
 
@@ -81,6 +85,16 @@ export function DashboardPage({ info, settings, settingsError }: Props) {
         )}
       </div>
 
+      {needsRecovery && (
+        <Notice tone="warn">
+          <div className={s.setup}>
+            <span>{RECOVERY_NOT_SET_WARNING}</span>
+            <Button size="sm" icon={KeyRound} onClick={() => navigate('/settings')}>
+              설정하기
+            </Button>
+          </div>
+        </Notice>
+      )}
       <ErrorNotice error={recent.error} />
       {r && (
         <Card

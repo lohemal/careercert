@@ -153,3 +153,46 @@ fn 시각에서_오늘을_뽑는다() {
     assert_eq!(today_of("2026-10-01T09:00:00"), Ok(ymd(2026, 10, 1)));
     assert!(today_of("").is_err());
 }
+
+// ---------------- 엑셀 날짜 숫자 ----------------
+
+#[test]
+fn 엑셀_1900_체계_날짜_숫자를_읽는다() {
+    let d = |n: f64| from_excel_serial(n, false);
+    assert_eq!(d(45000.0).unwrap(), NaiveDate::from_ymd_opt(2023, 3, 15).unwrap());
+    assert_eq!(d(44624.0).unwrap(), NaiveDate::from_ymd_opt(2022, 3, 4).unwrap());
+    assert_eq!(d(44624.75).unwrap(), NaiveDate::from_ymd_opt(2022, 3, 4).unwrap(), "시각은 버린다");
+    assert_eq!(d(46085.0).unwrap(), NaiveDate::from_ymd_opt(2026, 3, 4).unwrap());
+}
+
+#[test]
+fn 엑셀의_1900년_윤년_오류를_고려한다() {
+    // 1 = 1900-01-01, 59 = 1900-02-28, 60 = 엑셀만의 1900-02-29(없는 날), 61 = 1900-03-01
+    let day = |y, m, d| NaiveDate::from_ymd_opt(y, m, d);
+    assert_eq!(excel_serial_day(1, false), day(1900, 1, 1));
+    assert_eq!(excel_serial_day(59, false), day(1900, 2, 28));
+    assert_eq!(excel_serial_day(60, false), None);
+    assert_eq!(excel_serial_day(61, false), day(1900, 3, 1));
+    assert_eq!(excel_serial_day(0, true), day(1904, 1, 1));
+    // 1900 년대는 연도 범위 밖이라 결과로는 거부한다
+    assert_eq!(from_excel_serial(60.0, false).unwrap_err(), DateError::NotExist);
+    assert_eq!(from_excel_serial(59.0, false).unwrap_err(), DateError::YearOutOfRange);
+    assert_eq!(from_excel_serial(61.0, false).unwrap_err(), DateError::YearOutOfRange);
+    // 범위 안에서는 60 이후 규칙(1899-12-30 기준)이 실제 엑셀과 같다: 18264 = 1950-01-01
+    assert_eq!(from_excel_serial(18264.0, false).unwrap(), NaiveDate::from_ymd_opt(1950, 1, 1).unwrap());
+}
+
+#[test]
+fn 엑셀_1904_체계도_읽는다() {
+    // 1904 체계는 1900 체계보다 1462 작다
+    assert_eq!(from_excel_serial(45000.0 - 1462.0, true).unwrap(), NaiveDate::from_ymd_opt(2023, 3, 15).unwrap());
+}
+
+#[test]
+fn 엑셀_날짜_숫자의_범위_밖은_거부한다() {
+    assert!(from_excel_serial(0.0, false).is_err());
+    assert!(from_excel_serial(-5.0, false).is_err());
+    assert!(from_excel_serial(f64::NAN, false).is_err());
+    assert!(from_excel_serial(3_000_000.0, false).is_err());
+    assert!(from_excel_serial(73051.0, false).is_err(), "2100-01-01 은 범위 밖");
+}

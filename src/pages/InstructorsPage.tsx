@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Archive, ArchiveRestore, CalendarCheck, CalendarX2, Pencil, Plus, Search, UserPlus } from 'lucide-react'
+import { Archive, ArchiveRestore, CalendarCheck, CalendarX2, FileSpreadsheet, Pencil, Plus, Search, UserPlus } from 'lucide-react'
 
 import { Badge, Button, ErrorNotice, Input, Notice, Page } from '@/components/ui'
 import { useConfirm } from '@/components/useConfirm'
@@ -39,9 +39,14 @@ export function InstructorsPage() {
     <Page
       title="강사관리"
       actions={
-        <Button icon={CalendarCheck} onClick={() => navigate('/instructors/bulk-end')}>
-          재직중 경력 일괄 종료
-        </Button>
+        <>
+          <Button icon={FileSpreadsheet} onClick={() => navigate('/instructors/import')}>
+            엑셀 가져오기
+          </Button>
+          <Button icon={CalendarCheck} onClick={() => navigate('/instructors/bulk-end')}>
+            재직중 경력 일괄 종료
+          </Button>
+        </>
       }
     >
       <div className={s.panes}>

@@ -2,6 +2,7 @@ pub mod app;
 pub mod bulk_end;
 pub mod career;
 pub mod certificate;
+pub mod data;
 pub mod dashboard;
 pub mod history;
 pub mod instructor;

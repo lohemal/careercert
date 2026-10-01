@@ -36,6 +36,10 @@ pub struct AppState {
     pub autofill_off: webview::AutofillState,
     /// 출력 엔진 (숨은 출력 창 하나)
     pub print: Arc<print::Engine>,
+    /// 복원 진행 (파일 고름 → 비밀번호로 준비 → 확인) — 준비한 메모리 자료를 여기 둔다
+    pub restore: Mutex<Option<commands::data::RestoreSession>>,
+    /// 엑셀 가져오기 진행 (분석 → 반영 미리보기 → 반영)
+    pub import: Mutex<Option<commands::data::ImportSession>>,
 }
 
 impl AppState {
@@ -59,6 +63,29 @@ pub fn run() {
             let db_path = app.path().app_data_dir()?.join(DB_FILE);
             let now = chrono::Local::now();
             let mut notes: Vec<StartupNote> = Vec::new();
+
+            // 대기 중인 복원 — 연결을 열기 **전에** 적용하고 검증한다(실패하면 지금 자료 그대로)
+            match service::restore::apply_pending(&db_path, &now.format("%Y-%m-%dT%H:%M:%S").to_string()) {
+                service::restore::Applied::Nothing => {}
+                service::restore::Applied::Done { counts: k, verified_certificates, backup_created_at } => {
+                    notes.push(StartupNote::new(
+                        "RESTORE",
+                        "success",
+                        format!(
+                            "이동용 백업({} 생성)에서 복원했습니다. 강사 {}명 · 경력 {}건 · 발급 {}건(취소 {}건) — 발급본 {}건을 모두 열어 확인했습니다.",
+                            backup_created_at.replace('T', " ").get(..16).unwrap_or(""),
+                            k.instructors,
+                            k.careers,
+                            k.certificates_issued,
+                            k.certificates_voided,
+                            verified_certificates
+                        ),
+                    ));
+                }
+                service::restore::Applied::Failed { message, .. } => {
+                    notes.push(StartupNote::new("RESTORE", "error", message));
+                }
+            }
 
             let db = Db::open(&db_path)?;
 
@@ -102,6 +129,8 @@ pub fn run() {
                 startup: Mutex::new(notes),
                 autofill_off,
                 print: Arc::new(print::Engine::default()),
+                restore: Mutex::new(None),
+                import: Mutex::new(None),
             });
             Ok(())
         })
@@ -140,6 +169,18 @@ pub fn run() {
             commands::history::certificate_copy_plan,
             commands::history::certificate_recent,
             commands::history::recovery_status,
+            // 데이터 관리
+            commands::data::recovery_set,
+            commands::data::recovery_change,
+            commands::data::backup_export,
+            commands::data::restore_pick,
+            commands::data::restore_unlock,
+            commands::data::restore_confirm,
+            commands::data::restore_cancel,
+            commands::data::import_open,
+            commands::data::import_plan,
+            commands::data::import_apply,
+            commands::data::import_cancel,
             // 출력 창이 부르는 것
             commands::print::print_host_ready,
             commands::print::print_take,

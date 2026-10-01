@@ -72,3 +72,58 @@ pub fn recovery_counts(conn: &Connection) -> AppResult<(i64, i64)> {
         |r| Ok((r.get(0)?, r.get(1)?)),
     )?)
 }
+
+/// key_store 한 줄 (감싼 사본 그대로 — 풀지 않는다)
+#[derive(Clone)]
+pub struct KeyRow {
+    pub key_id: String,
+    pub dpapi_blob: Vec<u8>,
+    pub recovery_blob: Option<Vec<u8>>,
+}
+
+impl std::fmt::Debug for KeyRow {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KeyRow")
+            .field("key_id", &self.key_id)
+            .field("recovery", &self.recovery_blob.is_some())
+            .finish_non_exhaustive()
+    }
+}
+
+/// 모든 키 (만든 차례)
+pub fn all(conn: &Connection) -> AppResult<Vec<KeyRow>> {
+    let mut stmt = conn.prepare("SELECT key_id, dpapi_blob, recovery_blob FROM key_store ORDER BY id")?;
+    let rows = stmt
+        .query_map([], |r| Ok(KeyRow { key_id: r.get(0)?, dpapi_blob: r.get(1)?, recovery_blob: r.get(2)? }))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+/// DPAPI 사본을 푼다 (이 PC·이 Windows 사용자에서만 풀린다)
+pub fn open_dpapi(row: &KeyRow) -> AppResult<DataKey> {
+    unwrap(row.key_id.clone(), &row.dpapi_blob)
+}
+
+/// 복구 비밀번호로 감싼 사본을 바꾼다
+pub fn set_recovery(conn: &Connection, key_id: &str, blob: &[u8], now: &str) -> AppResult<()> {
+    let n = conn.execute(
+        "UPDATE key_store SET recovery_blob = ?2, recovery_set_at = ?3 WHERE key_id = ?1",
+        params![key_id, blob, now],
+    )?;
+    if n == 1 {
+        Ok(())
+    } else {
+        Err(AppError::internal("key_store 행을 찾지 못했습니다."))
+    }
+}
+
+/// 이 PC 의 DPAPI 로 다시 감싼다 (다른 PC·계정에서 복원할 때)
+pub fn rewrap_dpapi(conn: &Connection, key: &DataKey) -> AppResult<()> {
+    let blob = dpapi::protect(key.expose())?;
+    let n = conn.execute("UPDATE key_store SET dpapi_blob = ?2 WHERE key_id = ?1", params![key.key_id, blob])?;
+    if n == 1 {
+        Ok(())
+    } else {
+        Err(AppError::internal("key_store 행을 찾지 못했습니다."))
+    }
+}

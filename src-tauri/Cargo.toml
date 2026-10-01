@@ -17,7 +17,7 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-rusqlite = { version = "0.32", features = ["bundled", "backup"] }
+rusqlite = { version = "0.32", features = ["bundled", "backup", "serialize"] }
 chrono = { version = "0.4", features = ["serde"] }
 log = "0.4"
 uuid = { version = "1", features = ["v4"] }
@@ -28,6 +28,10 @@ aes-gcm = "0.10"
 hmac = "0.12"
 sha2 = "0.10"
 zeroize = "1"
+# 복구 비밀번호 → 키 감싸기용 키(KEK). 비밀번호 자체는 어디에도 저장하지 않는다
+argon2 = { version = "0.5", default-features = false, features = ["alloc"] }
+# 엑셀(.xlsx·.xlsm) 읽기 — Excel 없이 파일만 읽는다. 매크로(VBA)는 실행하지 않는다(실행 기능이 없다)
+calamine = "0.30"
 # 정식 PDF 저장 위치 고르기 (Rust 에서만 부른다 — 경로가 화면으로 가지 않는다)
 tauri-plugin-dialog = "2"
 
@@ -36,6 +40,16 @@ tauri-plugin-dialog = "2"
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.39"
 windows = { version = "0.62", features = ["Win32_System_Com", "Win32_Graphics_Printing", "Win32_Security_Cryptography", "Win32_Foundation"] }
+
+[dev-dependencies]
+# 시험용 엑셀 파일 만들기 (가상값만)
+rust_xlsxwriter = "0.89"
+
+# 개발 빌드에서도 Argon2 는 최적화한다 — 안 하면 비밀번호 확인 한 번에 수십 초 걸린다
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake2]
+opt-level = 3
 
 [profile.release]
 codegen-units = 1

@@ -1,0 +1,93 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.section + .section {
+  border-top: 1px solid var(--border);
+  padding-top: var(--sp-4);
+  margin-top: var(--sp-2);
+}
+
+.title {
+  font-size: var(--fs-base);
+}
+
+.help {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.sub {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.actions {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px var(--sp-5);
+  margin: 0;
+  align-items: center;
+}
+
+.facts dt {
+  color: var(--text-muted);
+}
+
+.facts dd {
+  margin: 0;
+}
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.table th,
+.table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.table th {
+  color: var(--text-muted);
+  background: var(--surface-2);
+}
+
+.num {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.checks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-sm);
+}
+
+.agree {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-weight: 600;
+  cursor: pointer;
+}

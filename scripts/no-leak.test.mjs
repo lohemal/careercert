@@ -79,6 +79,21 @@ test('발급이력 목록·상세용 SQL(META_COLS)에 암호문·키·지문 �
   for (const col of ['sensitive_nonce', 'sensitive_cipher', 'key_id', 'doc_hash']) assert.ok(!m[1].includes(col), col)
 })
 
+test('복구 비밀번호·백업·가져오기 화면도 useMutation 을 쓰지 않는다', () => {
+  const files = ui.filter((f) => /features[\\/]data[\\/]|ImportPage\.tsx$|ipc[\\/]data\.ts$/.test(f))
+  assert.ok(files.length >= 4, `대상 ${files.length}개`)
+  assert.deepEqual(find(files, /\buseMutation\b/), [])
+})
+
+// Phase 8 — 엑셀 가져오기는 파일을 읽기만 한다. 매크로(VBA)·Excel·외부 프로그램을 부르는 길이 없어야 한다.
+test('엑셀 가져오기는 매크로를 실행하거나 Excel·외부 프로그램을 부르지 않는다', () => {
+  const files = ['service/import.rs', 'commands/data.rs'].map((f) => join(ROOT, 'src-tauri', 'src', f))
+  assert.deepEqual(
+    find(files, /\b(vba_project|std::process|Command::new|CoCreateInstance|ShellExecute|Excel\.Application|open_workbook_auto)\b/),
+    [],
+  )
+})
+
 test('발급이력 화면도 useMutation 을 쓰지 않는다', () => {
   const pages = ui.filter((f) => /[\\/]HistoryPage\.tsx$/.test(f))
   assert.equal(pages.length, 1)

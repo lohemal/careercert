@@ -14,7 +14,11 @@ pub mod career;
 pub mod certificate;
 pub mod dashboard;
 pub mod history;
+pub mod import;
 pub mod issuance;
+pub mod portable;
+pub mod recovery;
+pub mod restore;
 pub mod instructor;
 
 /// 보관 상태가 맞지 않을 때의 오류들.

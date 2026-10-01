@@ -12,6 +12,7 @@ pub mod migrate;
 pub(crate) mod testutil;
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use rusqlite::Connection;
@@ -27,6 +28,8 @@ pub const DB_FILE: &str = "careercert.db";
 pub struct Db {
     conn: Mutex<Connection>,
     path: PathBuf,
+    /// 복원하고 다시 시작하기 직전에 파일 연결을 놓았다 — 이후 요청은 거절한다
+    released: AtomicBool,
 }
 
 impl Db {
@@ -50,6 +53,7 @@ impl Db {
         Ok(Self {
             conn: Mutex::new(conn),
             path: path.to_path_buf(),
+            released: AtomicBool::new(false),
         })
     }
 
@@ -62,6 +66,7 @@ impl Db {
         Self {
             conn: Mutex::new(conn),
             path: PathBuf::from(":memory:"),
+            released: AtomicBool::new(false),
         }
     }
 
@@ -69,15 +74,34 @@ impl Db {
         &self.path
     }
 
+    fn check_open(&self) -> AppResult<()> {
+        if self.released.load(Ordering::SeqCst) {
+            return Err(AppError::new("DB_RELEASED", "프로그램을 다시 시작하는 중입니다. 잠시 뒤 다시 열어 주세요."));
+        }
+        Ok(())
+    }
+
+    /// 파일 연결을 놓는다(WAL 을 비우고 닫음). 복원 대기 파일을 다음 시작에서 적용하려고 다시 시작하기 직전에만 쓴다.
+    pub fn release(&self) -> AppResult<()> {
+        let mut guard = self.conn.lock().unwrap_or_else(|e| e.into_inner());
+        let _ = guard.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(()));
+        self.released.store(true, Ordering::SeqCst);
+        let old = std::mem::replace(&mut *guard, Connection::open_in_memory()?);
+        old.close().map_err(|(_, e)| AppError::from(e))?;
+        Ok(())
+    }
+
     /// 읽기 전용 작업.
     pub fn read<T>(&self, f: impl FnOnce(&Connection) -> AppResult<T>) -> AppResult<T> {
         let guard = self.conn.lock().unwrap_or_else(|e| e.into_inner());
+        self.check_open()?;
         f(&guard)
     }
 
     /// 쓰기 작업. 클로저가 Err 를 돌려주면 전체가 되돌려진다.
     pub fn write<T>(&self, f: impl FnOnce(&Connection) -> AppResult<T>) -> AppResult<T> {
         let mut guard = self.conn.lock().unwrap_or_else(|e| e.into_inner());
+        self.check_open()?;
         let tx = guard.transaction()?;
         let out = f(&tx)?;
         tx.commit()?;
@@ -102,6 +126,7 @@ impl Db {
     /// 지금 자료를 통째로 `dest` 에 뜬다 (SQLite 백업 API — WAL 내용 포함).
     pub fn backup_to(&self, dest: &Path) -> AppResult<()> {
         let guard = self.conn.lock().unwrap_or_else(|e| e.into_inner());
+        self.check_open()?;
         copy_with_backup_api(&guard, dest)
     }
 }

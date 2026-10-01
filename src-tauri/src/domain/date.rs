@@ -125,7 +125,6 @@ pub fn display_period_parts(start: NaiveDate, end: Option<NaiveDate>) -> (String
 /// 종료 칸에 적힌 "아직 근무 중" 이라는 말인가. 공백은 무시한다.
 ///
 /// 이 말들은 **날짜로 저장하지 않는다** — 가져오기가 종료일 NULL + 재직중으로 바꾼다.
-#[cfg_attr(not(test), allow(dead_code))] // Phase 8 엑셀 가져오기가 쓴다
 pub fn is_current_word(s: &str) -> bool {
     let t: String = s.chars().filter(|c| !c.is_whitespace()).collect();
     matches!(t.as_str(), "현재" | "재직중" | "재직" | "근무중")
@@ -145,7 +144,6 @@ pub fn is_current_word(s: &str) -> bool {
 ///   * 구분자를 섞은 것 (`2022.3-4`) — 실수일 가능성이 커서 추측하지 않는다
 ///   * 세 토막이 아닌 것 (`2022.3`), 월·일이 세 자리 이상, 숫자가 아닌 글자
 ///   * 없는 날짜 (`2022.02.30`, `2022.13.04`)
-#[cfg_attr(not(test), allow(dead_code))] // Phase 8 엑셀 가져오기가 쓴다
 pub fn parse_loose(s: &str) -> Result<NaiveDate, DateError> {
     let t = s.trim();
     if t.is_empty() {
@@ -205,6 +203,44 @@ pub fn parse_loose(s: &str) -> Result<NaiveDate, DateError> {
     let m: u32 = ms.parse().map_err(|_| DateError::Format)?;
     let d: u32 = ds.parse().map_err(|_| DateError::Format)?;
     make(y, m, d)
+}
+
+/// 엑셀 날짜 숫자(일련번호)를 날짜로. 소수점 아래(시각)는 버린다.
+///
+/// * **1900 체계**(기본): 1 = 1900-01-01. 엑셀은 1900년을 윤년으로 잘못 보아 **60 = 1900-02-29**(없는 날)이
+///   있다(Lotus 1-2-3 호환). 그래서 1~59 는 1899-12-31 + n, 60 은 거부, 61 이상은 1899-12-30 + n.
+/// * **1904 체계**(옛 Mac 엑셀, 통합문서 설정): 0 = 1904-01-01.
+/// * 0 이하·연도 범위(`MIN_YEAR`~`MAX_YEAR`) 밖은 거부한다.
+pub fn from_excel_serial(serial: f64, date1904: bool) -> Result<NaiveDate, DateError> {
+    if !serial.is_finite() {
+        return Err(DateError::Format);
+    }
+    let n = serial.floor();
+    if n < 0.0 || n > 2_958_465.0 {
+        return Err(DateError::YearOutOfRange);
+    }
+    if !date1904 && n == 60.0 {
+        return Err(DateError::NotExist); // 1900-02-29 (엑셀만의 날)
+    }
+    let d = excel_serial_day(n as i64, date1904).ok_or(DateError::YearOutOfRange)?;
+    if !(MIN_YEAR..=MAX_YEAR).contains(&d.year()) {
+        return Err(DateError::YearOutOfRange);
+    }
+    Ok(d)
+}
+
+/// 일련번호 → 날짜 (연도 범위 검사 없이). 1900 체계의 60 은 None.
+fn excel_serial_day(n: i64, date1904: bool) -> Option<NaiveDate> {
+    let base = |y, m, d| NaiveDate::from_ymd_opt(y, m, d);
+    let add = |b: NaiveDate| b.checked_add_signed(chrono::Duration::days(n));
+    if date1904 {
+        return base(1904, 1, 1).and_then(add);
+    }
+    match n {
+        ..=0 | 60 => None,
+        1..=59 => base(1899, 12, 31).and_then(add),
+        _ => base(1899, 12, 30).and_then(add),
+    }
 }
 
 /// 시각 `YYYY-MM-DDTHH:MM:SS` 의 날짜. service 는 시각(`now`) 하나만 받고 오늘은 여기서 뽑는다 —

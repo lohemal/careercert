@@ -163,7 +163,9 @@ fn 강사_표에는_주민번호와_주소_칸이_없다() {
             "memo",
             "archived_at",
             "created_at",
-            "updated_at"
+            "updated_at",
+            // 007 — 가져오기로 만든 강사의 묶음 번호 (개인정보 아님)
+            "import_id"
         ]
     );
     for c in &cols {

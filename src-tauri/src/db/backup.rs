@@ -1,4 +1,6 @@
-//! 백업 (Phase 0 기본 — 복원·다른 PC 이전은 Phase 8).
+//! 내부 자동 백업 (이 PC 안에서 되돌리기용 — 비밀번호를 묻지 않는다).
+//!
+//! 다른 PC 로 옮기는 **이동용 백업**은 `service::portable`(파일 전체를 복구 비밀번호로 암호화)이다.
 //!
 //! 강사 경력과 발급 기록은 이 컴퓨터 안에만 있다. 되돌릴 수 있는 것이 마지막 안전장치다.
 //!
@@ -30,6 +32,10 @@ pub enum Kind {
     BeforeMigration,
     /// 재직중 경력 일괄 종료 직전
     BeforeBulkEnd,
+    /// 이동용 백업에서 복원하기 직전 (지금 자료)
+    BeforeRestore,
+    /// 엑셀 가져오기를 반영하기 직전
+    BeforeImport,
     /// 이름으로 가릴 수 없는 파일
     Other,
 }
@@ -41,6 +47,8 @@ impl Kind {
             Kind::Manual => "MANUAL",
             Kind::BeforeMigration => "BEFORE_MIGRATION",
             Kind::BeforeBulkEnd => "BEFORE_BULK_END",
+            Kind::BeforeRestore => "BEFORE_RESTORE",
+            Kind::BeforeImport => "BEFORE_IMPORT",
             Kind::Other => "OTHER",
         }
     }
@@ -52,6 +60,8 @@ impl Kind {
             Kind::Manual => "manual_",
             Kind::BeforeMigration => "before_migration_",
             Kind::BeforeBulkEnd => "before_bulk_end_",
+            Kind::BeforeRestore => "before_restore_",
+            Kind::BeforeImport => "before_import_",
             Kind::Other => "",
         }
     }
@@ -63,7 +73,7 @@ impl Kind {
 
     /// 파일 이름으로 종류를 가린다.
     pub fn of_file(name: &str) -> Kind {
-        for k in [Kind::Auto, Kind::Manual, Kind::BeforeMigration, Kind::BeforeBulkEnd] {
+        for k in [Kind::Auto, Kind::Manual, Kind::BeforeMigration, Kind::BeforeBulkEnd, Kind::BeforeRestore, Kind::BeforeImport] {
             if name.starts_with(k.prefix()) {
                 return k;
             }

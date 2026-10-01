@@ -7,6 +7,7 @@ import { errorDetail, errorMessage } from '@/ipc/invoke'
 import { BulkEndPage } from '@/pages/BulkEndPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { HistoryPage } from '@/pages/HistoryPage'
+import { ImportPage } from '@/pages/ImportPage'
 import { InstructorsPage } from '@/pages/InstructorsPage'
 import { IssuePage } from '@/pages/IssuePage'
 import { SettingsPage } from '@/pages/SettingsPage'
@@ -60,6 +61,7 @@ export function App() {
           />
           <Route path="/instructors" element={<InstructorsPage />} />
           <Route path="/instructors/bulk-end" element={<BulkEndPage />} />
+          <Route path="/instructors/import" element={<ImportPage />} />
           <Route path="/issue" element={<IssuePage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/settings" element={<SettingsPage info={info.data} />} />
