@@ -112,3 +112,39 @@
 .items td:nth-child(2) {
   white-space: nowrap;
 }
+
+/* 발급 취소 · 오발급 폐기 — 두 위험 작업을 나란히, 차이를 글로 */
+.danger {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+}
+
+.dangerItem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.dangerText {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.agree {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin-top: var(--sp-2);
+  font-weight: 600;
+}
+
+.mismatch {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--error-text);
+}

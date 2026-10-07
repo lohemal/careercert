@@ -93,10 +93,20 @@ export interface PrintResult {
 /** 한 번에 인쇄할 수 있는 매수 (서버도 같은 범위만 받는다) */
 export const MAX_COPIES = 5
 
+export interface DiscardRequest {
+  reason: string
+  /** 담당자가 다시 입력한 발급번호 (앞뒤 공백만 정리해 비교) */
+  issueNoConfirm: string
+  /** 정식 출력 성공 기록이 있을 때 '외부 교부가 아님' 을 따로 확인했는가 */
+  outputsAcknowledged: boolean
+}
+
 export const issuanceApi = {
   issue: (request: IssueRequest) => invoke<Issued>('certificate_issue', { request }),
   get: (id: number) => invoke<Issued>('certificate_issued', { id }),
   void: (id: number, reason: string) => invoke<Issued>('certificate_void', { id, reason }),
+  /** 오발급 폐기 — 기록을 지우고 발급번호를 다시 쓸 수 있게 한다(발급 취소와 다르다). 사유는 저장하지 않는다 */
+  discard: (id: number, request: DiscardRequest) => invoke<void>('certificate_discard', { id, request }),
   savePdf: (id: number) => invoke<SaveResult>('certificate_save_pdf', { id }),
   print: (id: number, printer: string, copies: number) => invoke<PrintResult>('certificate_print', { id, printer, copies }),
   printers: () => invoke<Printers>('printers_list'),

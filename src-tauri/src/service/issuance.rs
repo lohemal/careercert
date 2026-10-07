@@ -363,6 +363,79 @@ pub fn void(conn: &Connection, id: i64, reason: &str, now: &str) -> AppResult<()
     Ok(())
 }
 
+/// 오발급 폐기 요청. 사유는 확인용으로만 받고 **어디에도 저장하지 않는다**(개인정보가 들어갈 수 있다 —
+/// 발급 기록은 지워지고, 변경 기록에는 사유를 옮겨 적지 않는다).
+#[derive(Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscardRequest {
+    pub reason: String,
+    /// 담당자가 다시 입력한 발급번호 — 앞뒤 공백만 빼고 발급 기록의 원문과 같아야 한다
+    pub issue_no_confirm: String,
+    /// 정식 출력(인쇄·PDF 저장) 성공 기록이 있을 때 "외부 교부가 아님" 을 따로 확인했는가
+    #[serde(default)]
+    pub outputs_acknowledged: bool,
+}
+
+impl std::fmt::Debug for DiscardRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DiscardRequest")
+            .field("reason", &"…")
+            .field("outputs_acknowledged", &self.outputs_acknowledged)
+            .finish()
+    }
+}
+
+pub const DISCARD_REASON_MAX: usize = 200;
+
+/// 오발급 폐기 — 잘못 확정한 **ISSUED** 발급 기록을 경력 줄·출력 이력·(다른 곳에서 안 쓰는) 로고 보관본과 함께
+/// 지운다. 발급번호(원문·공백 뺀 키)를 다시 쓸 수 있게 된다. '발급 취소'(기록은 남고 번호는 영구 점유)와 다르다.
+///
+/// * 취소(VOIDED)된 건은 폐기하지 않는다 — 이미 공식 처리된 이력이다.
+/// * 이 발급 기록을 copied_from 으로 가리키던 다른 발급 기록은 그대로 두고 그 칸만 비운다(지문에 없는 칸).
+/// * 변경 기록에는 폐기했다는 사실·내부 식별자(uuid)·건수만. 발급번호·성명·사유는 적지 않는다.
+pub fn discard(conn: &Connection, id: i64, req: &DiscardRequest, now: &str) -> AppResult<()> {
+    let reason = req.reason.trim();
+    if reason.is_empty() {
+        return Err(AppError::invalid("폐기 사유를 입력해 주세요."));
+    }
+    if reason.chars().count() > DISCARD_REASON_MAX {
+        return Err(AppError::invalid(format!("폐기 사유는 {DISCARD_REASON_MAX}자 이내로 입력해 주세요.")));
+    }
+    let row = repo::get(conn, id)?;
+    if row.status != "ISSUED" {
+        return Err(AppError::new(
+            "CERT_NOT_ISSUED",
+            "발급 취소된 건은 오발급 폐기할 수 없습니다. 취소 기록은 그대로 남습니다.",
+        ));
+    }
+    // 발급번호 원문 규칙(앞뒤 공백만 정리)과 같게 비교한다
+    if req.issue_no_confirm.trim() != row.issue_no {
+        return Err(AppError::new(
+            "CERT_DISCARD_MISMATCH",
+            "다시 입력한 발급번호가 이 증명서의 발급번호와 다릅니다.",
+        ));
+    }
+    let printed = repo::outputs(conn, id)?.iter().filter(|o| o.result == "SUCCESS").count();
+    if printed > 0 && !req.outputs_acknowledged {
+        return Err(AppError::new(
+            "CERT_DISCARD_OUTPUTS_UNCONFIRMED",
+            "이 증명서는 이미 인쇄 또는 PDF 저장된 기록이 있습니다. 외부에 교부한 증명서가 아님을 확인해 주세요.",
+        ));
+    }
+    let d = crate::repo::discard::discard_certificate(conn, id)?;
+    audit::add(
+        conn,
+        now,
+        Action::CertificateDiscard,
+        Some(id),
+        &format!(
+            "오발급 폐기 · 발급번호 재사용 가능 · 경력 {}건 · 출력 이력 {}건 · 참조 해제 {}건 · {}",
+            d.items, d.outputs, d.unlinked, d.uuid
+        ),
+    )?;
+    Ok(())
+}
+
 /// 출력 결과.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OutputKind {
@@ -408,3 +481,7 @@ pub fn record_output(
 #[cfg(test)]
 #[path = "issuance_tests.rs"]
 pub(crate) mod issuance_tests;
+
+#[cfg(test)]
+#[path = "discard_tests.rs"]
+mod discard_tests;

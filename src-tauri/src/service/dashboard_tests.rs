@@ -4,9 +4,9 @@ use crate::domain::career::{CareerInput, CareerStatus, EndReason};
 use crate::domain::instructor::InstructorInput;
 use crate::service::{career, instructor};
 
-const NOW: &str = "2026-10-01T09:00:00";
+pub(crate) const NOW: &str = "2026-10-01T09:00:00";
 
-fn who(db: &Db, name: &str, distinguisher: &str) -> i64 {
+pub(crate) fn who(db: &Db, name: &str, distinguisher: &str) -> i64 {
     db.write(|c| {
         instructor::create(
             c,
@@ -22,7 +22,7 @@ fn who(db: &Db, name: &str, distinguisher: &str) -> i64 {
     .id
 }
 
-fn add(db: &Db, owner: i64, program: &str, start: &str, end: Option<&str>) -> i64 {
+pub(crate) fn add(db: &Db, owner: i64, program: &str, start: &str, end: Option<&str>) -> i64 {
     db.write(|c| {
         career::create(
             c,

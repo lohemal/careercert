@@ -155,6 +155,7 @@ pub fn run() {
             commands::career::career_end,
             commands::career::career_archive,
             commands::career::career_unarchive,
+            commands::career::career_overlap_acknowledge,
             commands::career::career_hints,
             // 증명서 작성 (읽기만 — 발급 기록 저장은 Phase 6)
             commands::certificate::certificate_choices,
@@ -164,6 +165,7 @@ pub fn run() {
             commands::issuance::certificate_issue,
             commands::issuance::certificate_issued,
             commands::issuance::certificate_void,
+            commands::issuance::certificate_discard,
             commands::issuance::certificate_save_pdf,
             commands::issuance::certificate_print,
             commands::issuance::printers_list,

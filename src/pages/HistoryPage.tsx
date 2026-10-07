@@ -28,6 +28,8 @@ export function HistoryPage() {
   const [params, setParams] = useSearchParams()
   const selectedId = Number(params.get('id')) || null
   const [filter, setFilter] = useState<HistoryFilter>(EMPTY)
+  // 오발급 폐기 뒤 목록에서 한 번 보이는 알림
+  const [discarded, setDiscarded] = useState<string | null>(null)
   const set = <K extends keyof HistoryFilter>(k: K, v: HistoryFilter[K]) => setFilter((f) => ({ ...f, [k]: v }))
   const badRange = !!(filter.from && filter.to && filter.from > filter.to)
 
@@ -38,7 +40,10 @@ export function HistoryPage() {
     enabled: !badRange && !selectedId,
   })
 
-  const open = (id: number | null) => setParams(id ? { id: String(id) } : {}, { replace: false })
+  const open = (id: number | null) => {
+    setDiscarded(null)
+    setParams(id ? { id: String(id) } : {}, { replace: false })
+  }
 
   if (selectedId) {
     return (
@@ -59,6 +64,15 @@ export function HistoryPage() {
             void qc.invalidateQueries({ queryKey: ['history'] })
             void qc.invalidateQueries({ queryKey: ['certificate-recent'] })
           }}
+          onDiscarded={(issueNo) => {
+            qc.removeQueries({ queryKey: ['certificate', selectedId] })
+            void qc.invalidateQueries({ queryKey: ['history'] })
+            void qc.invalidateQueries({ queryKey: ['certificate-recent'] })
+            void qc.invalidateQueries({ queryKey: ['recovery'] })
+            void qc.invalidateQueries({ queryKey: ['backup-reminder'] })
+            setParams({}, { replace: true })
+            setDiscarded(issueNo)
+          }}
         />
       </Page>
     )
@@ -67,6 +81,11 @@ export function HistoryPage() {
   const filtered = filter.query.trim() || filter.from || filter.to || filter.status !== 'ALL'
   return (
     <Page title="발급이력" description="성명·발급번호로 찾고, 발급 당시 내용 그대로 다시 인쇄하거나 PDF 로 저장합니다.">
+      {discarded && (
+        <Notice tone="success">
+          {discarded} 증명서 기록을 오발급 폐기했습니다. 이 발급번호로 새 증명서를 발급할 수 있습니다.
+        </Notice>
+      )}
       <div className={s.filters}>
         <div className={s.searchBox}>
           <Search size={16} className={s.searchIcon} />
@@ -161,11 +180,13 @@ function HistoryDetail({
   onOpen,
   onCopy,
   onChanged,
+  onDiscarded,
 }: {
   id: number
   onOpen: (id: number) => void
   onCopy: () => void
   onChanged: () => void
+  onDiscarded: (issueNo: string) => void
 }) {
   const qc = useQueryClient()
   const detail = useQuery({ queryKey: ['certificate', id], queryFn: () => issuanceApi.get(id), staleTime: 0 })
@@ -175,5 +196,15 @@ function HistoryDetail({
   }
   if (detail.error) return <ErrorNotice error={detail.error} />
   if (!detail.data) return null
-  return <IssuedPanel issued={detail.data} variant="history" onChange={update} onCopy={onCopy} onOpen={onOpen} />
+  const issueNo = detail.data.issueNo
+  return (
+    <IssuedPanel
+      issued={detail.data}
+      variant="history"
+      onChange={update}
+      onCopy={onCopy}
+      onOpen={onOpen}
+      onDiscarded={() => onDiscarded(issueNo)}
+    />
+  )
 }

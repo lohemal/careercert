@@ -152,6 +152,14 @@ pub fn certificate_void(state: State<'_, AppState>, id: i64, reason: String) -> 
     Ok(view(state.db.read(|c| history::detail(c, id))?))
 }
 
+/// 오발급 폐기 — 잘못 확정한 ISSUED 발급 기록을 지우고 발급번호를 다시 쓸 수 있게 한다(발급 취소와 다르다).
+/// 사유·발급번호 재입력·출력 이력 확인은 서버가 다시 검사한다.
+#[tauri::command]
+pub fn certificate_discard(state: State<'_, AppState>, id: i64, request: service::DiscardRequest) -> AppResult<()> {
+    let now = now();
+    state.db.write(|c| service::discard(c, id, &request, &now))
+}
+
 /// 설치된 프린터와 기본 프린터·상태.
 #[tauri::command]
 pub fn printers_list() -> Printers {

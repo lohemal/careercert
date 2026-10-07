@@ -1,12 +1,13 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { FileDown, History, KeyRound, Settings } from 'lucide-react'
+import { CheckCheck, FileDown, History, KeyRound, Settings } from 'lucide-react'
 
 import { Button, Card, ErrorNotice, Notice, Page } from '@/components/ui'
 import { RECOVERY_NOT_SET_WARNING } from '@/features/data/RecoverySection'
 import { whoLabel } from '@/features/instructors/label'
 import type { AppInfo } from '@/ipc/app'
-import { dashboardApi } from '@/ipc/dashboard'
+import { dashboardApi, type OverlapRef } from '@/ipc/dashboard'
 import { backupApi } from '@/ipc/data'
 import { historyApi, type HistoryRow } from '@/ipc/issuance'
 import type { SettingsView } from '@/ipc/settings'
@@ -25,7 +26,25 @@ interface Props {
  */
 export function DashboardPage({ info, settings, settingsError }: Props) {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const overview = useQuery({ queryKey: ['dashboard'], queryFn: dashboardApi.overview })
+  // 기간 겹침 '정상 경력으로 확인' — 그 한 쌍만. 누르면 바로 목록을 다시 읽는다
+  const [acking, setAcking] = useState<string | null>(null)
+  const [ackError, setAckError] = useState<unknown>(null)
+  const acknowledge = async (ref: OverlapRef) => {
+    setAcking(ref.fingerprint)
+    setAckError(null)
+    try {
+      await dashboardApi.acknowledgeOverlap(ref)
+      await qc.invalidateQueries({ queryKey: ['dashboard'] })
+      void qc.invalidateQueries({ queryKey: ['backup-reminder'] })
+    } catch (e) {
+      setAckError(e)
+      void qc.invalidateQueries({ queryKey: ['dashboard'] })
+    } finally {
+      setAcking(null)
+    }
+  }
   const missing = settings?.missing ?? []
   const school = settings?.settings
   const o = overview.data
@@ -139,6 +158,7 @@ export function DashboardPage({ info, settings, settingsError }: Props) {
                   {c.title} <span className={s.count}>{c.items.length}</span>
                 </h3>
                 <p className={s.checkDesc}>{c.description}</p>
+                {c.kind === 'OVERLAP' && <ErrorNotice error={ackError} />}
                 <ul className={s.items}>
                   {c.items.map((it, n) => (
                     <li key={`${it.instructorId}-${n}`}>
@@ -146,6 +166,18 @@ export function DashboardPage({ info, settings, settingsError }: Props) {
                         {whoLabel({ name: it.instructorName, distinguisher: it.distinguisher })}
                       </button>
                       <span className={s.detail}>{it.detail}</span>
+                      {it.overlap && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          icon={CheckCheck}
+                          disabled={acking !== null}
+                          onClick={() => void acknowledge(it.overlap!)}
+                          title="같은 기간에 두 프로그램을 함께 맡은 실제 경력이면 누르세요. 이 두 경력의 기간이 바뀌면 다시 나타납니다."
+                        >
+                          {acking === it.overlap.fingerprint ? '확인 중…' : '정상 경력으로 확인'}
+                        </Button>
+                      )}
                     </li>
                   ))}
                 </ul>

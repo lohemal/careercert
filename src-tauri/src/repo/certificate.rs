@@ -36,13 +36,20 @@ pub struct NewCertificate<'a> {
     pub logo_sha256: Option<&'a str>,
 }
 
+/// 새 발급 기록의 번호. 오발급 폐기로 지운 번호를 다시 쓰지 않는다 — 변경 기록(audit_log)이 발급 번호로
+/// 가리키므로, 지금 있는 발급 기록과 변경 기록에 나온 발급 번호 중 가장 큰 것 + 1.
+const NEXT_ID: &str = "(SELECT MAX(m) + 1 FROM (
+        SELECT COALESCE(MAX(id), 0) AS m FROM certificates
+        UNION ALL
+        SELECT COALESCE(MAX(target_id), 0) FROM audit_log WHERE target_type = 'certificate'))";
+
 pub fn insert(conn: &Connection, c: &NewCertificate<'_>) -> AppResult<i64> {
     conn.execute(
-        "INSERT INTO certificates (uuid, issue_no, issue_no_key, issued_on, template_version, title, purpose,
+        &format!("INSERT INTO certificates (id, uuid, issue_no, issue_no_key, issued_on, template_version, title, purpose,
                                    holder_name, sensitive_nonce, sensitive_cipher, key_id, masked_rrn, rrn_display,
                                    issuer_title, department, manager_name, phone, item_count, doc_hash,
                                    source_instructor_id, copied_from_certificate_id, created_at, created_by, logo_sha256)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
+         VALUES ({NEXT_ID}, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)"),
         params![
             c.uuid,
             c.issue_no,

@@ -15,6 +15,16 @@ pub struct CheckItemView {
     pub instructor_name: String,
     pub distinguisher: String,
     pub detail: String,
+    /// 기간 겹침 항목만
+    pub overlap: Option<OverlapView>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverlapView {
+    pub career_a_id: i64,
+    pub career_b_id: i64,
+    pub fingerprint: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -56,6 +66,11 @@ pub fn dashboard_overview(state: State<'_, AppState>) -> AppResult<OverviewView>
                         instructor_name: i.instructor_name,
                         distinguisher: i.distinguisher,
                         detail: i.detail,
+                        overlap: i.overlap.map(|o| OverlapView {
+                            career_a_id: o.career_a_id,
+                            career_b_id: o.career_b_id,
+                            fingerprint: o.fingerprint,
+                        }),
                     })
                     .collect(),
             })

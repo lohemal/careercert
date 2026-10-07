@@ -138,6 +138,18 @@ pub fn career_archive(state: State<'_, AppState>, id: i64) -> AppResult<CareerVi
     Ok(view(c, today(&now)?))
 }
 
+/// 같은 강사의 두 경력 기간 겹침을 '정상 경력' 으로 확인 (그 한 쌍 · 지금 지문)
+#[tauri::command]
+pub fn career_overlap_acknowledge(
+    state: State<'_, AppState>,
+    career_a_id: i64,
+    career_b_id: i64,
+    fingerprint: String,
+) -> AppResult<()> {
+    let now = now();
+    state.db.write(|c| service::acknowledge_overlap(c, career_a_id, career_b_id, &fingerprint, &now))
+}
+
 #[tauri::command]
 pub fn career_unarchive(state: State<'_, AppState>, id: i64) -> AppResult<CareerView> {
     let now = now();

@@ -72,6 +72,8 @@ function IssueForm({ defaults, missingSettings }: { defaults: Defaults; missingS
   const [confirming, setConfirming] = useState(false)
   const [staleMessage, setStaleMessage] = useState<string | null>(null)
   const [issued, setIssued] = useState<Issued | null>(null)
+  // 방금 확정한 것을 오발급 폐기했다 — 빈 작성 화면 위에 한 번 알린다
+  const [discardedNo, setDiscardedNo] = useState<string | null>(null)
 
   useEffect(() => {
     if (copyFrom == null) return
@@ -116,6 +118,7 @@ function IssueForm({ defaults, missingSettings }: { defaults: Defaults; missingS
     setPicking(true)
     setCopyPlan(null)
     setIssued(r)
+    setDiscardedNo(null)
     void qc.invalidateQueries({ queryKey: ['history'] })
     void qc.invalidateQueries({ queryKey: ['certificate-recent'] })
     void qc.invalidateQueries({ queryKey: ['recovery'] })
@@ -189,6 +192,14 @@ function IssueForm({ defaults, missingSettings }: { defaults: Defaults; missingS
           }}
           onNew={() => setIssued(null)}
           onOpen={(id) => navigate(`/history?id=${id}`)}
+          onDiscarded={() => {
+            setIssued(null)
+            setDiscardedNo(issued.issueNo)
+            void qc.invalidateQueries({ queryKey: ['history'] })
+            void qc.invalidateQueries({ queryKey: ['certificate-recent'] })
+            void qc.invalidateQueries({ queryKey: ['recovery'] })
+            void qc.invalidateQueries({ queryKey: ['backup-reminder'] })
+          }}
         />
       </Page>
     )
@@ -196,6 +207,11 @@ function IssueForm({ defaults, missingSettings }: { defaults: Defaults; missingS
 
   return (
     <Page title="증명서 발급" description="강사 선택 → 경력 선택 → 발급 정보 → 내용 확인 → 발급 확정">
+      {discardedNo && (
+        <Notice tone="success">
+          {discardedNo} 증명서 기록을 오발급 폐기했습니다. 같은 발급번호로 다시 작성할 수 있습니다.
+        </Notice>
+      )}
       {missingSettings.length > 0 && (
         <Notice tone="warn">
           <span className={s.inline}>

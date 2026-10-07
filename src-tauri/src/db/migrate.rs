@@ -64,6 +64,11 @@ pub(crate) const MIGRATIONS: &[Migration] = &[
         name: "008_school_logo",
         sql: include_str!("../../migrations/008_school_logo.sql"),
     },
+    Migration {
+        version: 9,
+        name: "009_discard_overlap_ack",
+        sql: include_str!("../../migrations/009_discard_overlap_ack.sql"),
+    },
 ];
 
 pub fn latest_version() -> i32 {

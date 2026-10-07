@@ -17,6 +17,8 @@ pub enum Action {
     BulkEnd,
     CertificateIssue,
     CertificateVoid,
+    CertificateDiscard,
+    CareerOverlapAck,
     RecoverySet,
     RecoveryChange,
     RecoveryReset,
@@ -41,6 +43,8 @@ impl Action {
             Action::BulkEnd => "BULK_END",
             Action::CertificateIssue => "CERTIFICATE_ISSUE",
             Action::CertificateVoid => "CERTIFICATE_VOID",
+            Action::CertificateDiscard => "CERTIFICATE_DISCARDED",
+            Action::CareerOverlapAck => "CAREER_OVERLAP_ACK",
             Action::RecoverySet => "RECOVERY_SET",
             Action::RecoveryChange => "RECOVERY_CHANGE",
             Action::RecoveryReset => "RECOVERY_RESET",
@@ -61,9 +65,10 @@ impl Action {
             | Action::CareerUpdate
             | Action::CareerEnd
             | Action::CareerArchive
-            | Action::CareerUnarchive => "career",
+            | Action::CareerUnarchive
+            | Action::CareerOverlapAck => "career",
             Action::BulkEnd => "bulk_end",
-            Action::CertificateIssue | Action::CertificateVoid => "certificate",
+            Action::CertificateIssue | Action::CertificateVoid | Action::CertificateDiscard => "certificate",
             Action::RecoverySet | Action::RecoveryChange | Action::RecoveryReset => "recovery",
             Action::BackupExport | Action::Restore => "backup",
             Action::Import => "import",

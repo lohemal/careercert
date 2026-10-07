@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Ban, CopyPlus, FileDown, FilePlus2, Printer } from 'lucide-react'
+import { Ban, CopyPlus, FileDown, FilePlus2, Printer, Trash2 } from 'lucide-react'
 
 import { Badge, Button, Card, ErrorNotice, Notice } from '@/components/ui'
 import { useConfirm } from '@/components/useConfirm'
 import { issuanceApi, type Issued, type OutputRecord } from '@/ipc/issuance'
+import { DiscardDialog } from './DiscardDialog'
 import { PrintDialog } from './PrintDialog'
 import { VoidDialog } from './VoidDialog'
 import s from './IssuedPanel.module.css'
@@ -19,6 +20,8 @@ interface Props {
   onCopy?: () => void
   /** 원본 발급 기록 보기 */
   onOpen?: (id: number) => void
+  /** 오발급 폐기가 끝났다 — 이 기록은 더 없다 */
+  onDiscarded?: () => void
 }
 
 /** `2026-10-01T09:05:00` → `2026.10.01. 09:05` */
@@ -37,16 +40,18 @@ const FAIL_TEXT: Record<string, string> = {
 }
 
 /**
- * 발급 기록 — 발급 당시 스냅샷 보기 · 재출력(인쇄·PDF 저장) · 발급 취소 · 이 내용으로 새 증명서 작성.
+ * 발급 기록 — 발급 당시 스냅샷 보기 · 재출력(인쇄·PDF 저장) · 발급 취소 · 오발급 폐기 · 이 내용으로 새 증명서 작성.
  *
  * * 보이는 값은 모두 발급 기록에서 왔다(복호화하지 않음). 주민번호는 가린 값만, 주소는 보이지 않는다.
  * * 재출력은 발급 번호만 보낸다 — Rust 가 발급 기록에서 다시 만들고 지문을 검증한다(지금 원장·설정을 읽지 않음).
- * * 취소된 건은 출력·취소 버튼이 없다(서버도 거절한다).
+ * * 취소된 건은 출력·취소·폐기 버튼이 없다(서버도 거절한다).
+ * * 발급 취소(효력 취소, 기록·번호 남음)와 오발급 폐기(잘못 확정한 기록 삭제, 번호 재사용)는 나란히 차이를 적어 보인다.
  */
-export function IssuedPanel({ issued, onChange, variant = 'issued', onNew, onCopy, onOpen }: Props) {
+export function IssuedPanel({ issued, onChange, variant = 'issued', onNew, onCopy, onOpen, onDiscarded }: Props) {
   const [confirm, confirmDialog] = useConfirm()
   const [printing, setPrinting] = useState(false)
   const [voiding, setVoiding] = useState(false)
+  const [discarding, setDiscarding] = useState(false)
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'success' | 'warn' | 'error'; text: string } | null>(null)
   const [error, setError] = useState<unknown>(null)
@@ -78,6 +83,7 @@ export function IssuedPanel({ issued, onChange, variant = 'issued', onNew, onCop
         <>
           {issued.issueNo} 증명서의 발급을 취소합니다. 내용은 지워지지 않고 남지만 다시 정식 출력할 수 없습니다.
           <br />이 발급번호는 다시 쓸 수 없습니다. 고쳐서 다시 발급하려면 NEIS 에서 새 번호를 받아야 합니다.
+          <br />교부하지 않은 증명서를 잘못 확정한 것이라면 '발급 취소' 대신 '오발급 폐기' 를 쓰세요.
         </>
       ),
     })
@@ -205,12 +211,30 @@ export function IssuedPanel({ issued, onChange, variant = 'issued', onNew, onCop
             새 증명서 작성
           </Button>
         )}
-        {!voided && (
-          <Button variant="ghost" icon={Ban} onClick={startVoid}>
-            발급 취소
-          </Button>
-        )}
       </div>
+
+      {!voided && (
+        <div className={s.danger}>
+          <div className={s.dangerItem}>
+            <Button variant="ghost" icon={Ban} onClick={startVoid}>
+              발급 취소
+            </Button>
+            <p className={s.dangerText}>
+              정상적으로 발급했던 증명서의 효력을 취소합니다. 기록은 남고, 발급번호는 다시 사용할 수 없습니다.
+            </p>
+          </div>
+          {onDiscarded && (
+            <div className={s.dangerItem}>
+              <Button variant="ghost" icon={Trash2} onClick={() => setDiscarding(true)}>
+                오발급 폐기
+              </Button>
+              <p className={s.dangerText}>
+                잘못 확정한 증명서 기록을 폐기합니다. 폐기 후 이 발급번호는 다시 사용할 수 있습니다.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       <OutputHistory outputs={issued.outputs} />
 
@@ -232,6 +256,16 @@ export function IssuedPanel({ issued, onChange, variant = 'issued', onNew, onCop
             setVoiding(false)
             onChange(r)
             setNotice({ tone: 'warn', text: '발급을 취소했습니다. 이 증명서는 더 이상 정식 출력할 수 없습니다.' })
+          }}
+        />
+      )}
+      {discarding && onDiscarded && (
+        <DiscardDialog
+          issued={issued}
+          onClose={() => setDiscarding(false)}
+          onDiscarded={() => {
+            setDiscarding(false)
+            onDiscarded()
           }}
         />
       )}

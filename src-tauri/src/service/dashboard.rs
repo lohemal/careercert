@@ -6,14 +6,13 @@
 
 use std::collections::BTreeMap;
 
-use chrono::NaiveDate;
 use rusqlite::Connection;
 
 use super::career::today;
 use crate::domain::career::{planned_end_passed, Career, Term};
-use crate::domain::date;
+use crate::domain::{date, overlap};
 use crate::error::AppResult;
-use crate::repo::career as career_repo;
+use crate::repo::{career as career_repo, overlap_ack};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CheckItem {
@@ -22,6 +21,15 @@ pub struct CheckItem {
     pub distinguisher: String,
     /// 무엇이 걸렸는지 한 줄
     pub detail: String,
+    /// 기간 겹침 항목만 — '정상 경력으로 확인' 에 쓰는 두 경력과 지금 지문
+    pub overlap: Option<OverlapRef>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OverlapRef {
+    pub career_a_id: i64,
+    pub career_b_id: i64,
+    pub fingerprint: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -75,6 +83,7 @@ pub fn overview(conn: &Connection, now: &str) -> AppResult<Overview> {
         instructor_name: who[&id].name.clone(),
         distinguisher: who[&id].distinguisher.clone(),
         detail,
+        overlap: None,
     };
     let line = |c: &Career| format!("{} · {}", c.fields.program_name, c.period());
 
@@ -91,6 +100,7 @@ pub fn overview(conn: &Connection, now: &str) -> AppResult<Overview> {
         .map(|id| item(*id, format!("같은 이름 {}명", by_name[who[id].name.as_str()].len())))
         .collect();
 
+    let acked = overlap_ack::fingerprints(conn)?;
     let mut planned_passed = Vec::new();
     let mut starts_later = Vec::new();
     let mut ends_later = Vec::new();
@@ -113,12 +123,21 @@ pub fn overview(conn: &Connection, now: &str) -> AppResult<Overview> {
                 }
             }
         }
-        // 4) 같은 강사의 경력 기간이 겹친다 (두 프로그램을 함께 맡았을 수도 있다 — 확인만)
+        // 4) 같은 강사의 경력 기간이 겹친다 (두 프로그램을 함께 맡았을 수도 있다 — 확인만).
+        //    담당자가 그 한 쌍을 '정상 경력' 으로 확인했고 지문(기간)이 그대로면 보이지 않는다.
         for (i, a) in list.iter().enumerate() {
             for b in &list[i + 1..] {
-                if overlaps(a, b) {
-                    overlap.push(item(*id, format!("{} / {}", line(a), line(b))));
+                if !overlap::overlaps(a, b) {
+                    continue;
                 }
+                let pair = overlap::pair(a, b);
+                if acked.contains(&pair.fingerprint) {
+                    continue;
+                }
+                overlap.push(CheckItem {
+                    overlap: Some(OverlapRef { career_a_id: a.id, career_b_id: b.id, fingerprint: pair.fingerprint }),
+                    ..item(*id, format!("{} / {}", line(a), line(b)))
+                });
             }
         }
     }
@@ -151,7 +170,7 @@ pub fn overview(conn: &Connection, now: &str) -> AppResult<Overview> {
         Check {
             kind: "OVERLAP",
             title: "기간이 겹치는 경력",
-            description: "같은 강사의 경력 기간이 겹칩니다. 두 프로그램을 함께 맡았다면 그대로 두어도 됩니다.",
+            description: "같은 강사의 경력 기간이 겹칩니다. 같은 기간에 두 프로그램을 함께 맡은 실제 경력이면 [정상 경력으로 확인] 을 누르세요. 기간이 바뀌면 다시 나타납니다.",
             items: overlap,
         },
     ]
@@ -172,12 +191,10 @@ pub fn overview(conn: &Connection, now: &str) -> AppResult<Overview> {
     })
 }
 
-/// 두 기간이 하루라도 겹치는가. 재직중은 끝이 없는 것으로 본다.
-fn overlaps(a: &Career, b: &Career) -> bool {
-    let end = |c: &Career| c.fields.term.end_date().unwrap_or(NaiveDate::MAX);
-    a.fields.start_date <= end(b) && b.fields.start_date <= end(a)
-}
-
 #[cfg(test)]
 #[path = "dashboard_tests.rs"]
-mod dashboard_tests;
+pub(crate) mod dashboard_tests;
+
+#[cfg(test)]
+#[path = "overlap_ack_tests.rs"]
+mod overlap_ack_tests;

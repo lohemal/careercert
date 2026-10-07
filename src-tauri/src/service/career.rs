@@ -8,9 +8,9 @@ use rusqlite::Connection;
 use super::archive_error;
 use crate::domain::audit::{changed_summary, Action};
 use crate::domain::career::{self, Career, CareerInput, EndReason, Term};
-use crate::domain::date;
+use crate::domain::{date, overlap};
 use crate::error::{AppError, AppResult};
-use crate::repo::{audit, career as repo, instructor as instructor_repo};
+use crate::repo::{audit, career as repo, instructor as instructor_repo, overlap_ack as overlap_repo};
 
 const WHAT: &str = "경력";
 const OWNER: &str = "강사의 경력";
@@ -123,3 +123,39 @@ pub fn list(conn: &Connection, instructor_id: i64, include_archived: bool) -> Ap
 #[cfg(test)]
 #[path = "career_tests.rs"]
 mod career_tests;
+
+/// 같은 강사의 두 경력 기간 겹침을 '정상 경력' 으로 확인한다 — 그 한 쌍만, 확인 당시 지문으로.
+/// 화면이 본 지문과 지금 지문이 다르면(그 사이 기간이 바뀌었으면) 거절한다. 겹치지 않는 쌍은 확인할 것이 없다.
+pub fn acknowledge_overlap(conn: &Connection, a_id: i64, b_id: i64, fingerprint: &str, now: &str) -> AppResult<()> {
+    if a_id == b_id {
+        return Err(AppError::invalid("서로 다른 두 경력을 골라 주세요."));
+    }
+    let a = editable(conn, a_id)?;
+    let b = editable(conn, b_id)?;
+    if a.instructor_id != b.instructor_id {
+        return Err(AppError::invalid("같은 강사의 경력끼리만 확인할 수 있습니다."));
+    }
+    let changed = || {
+        AppError::new(
+            "OVERLAP_CHANGED",
+            "그 사이 경력 기간이 바뀌었습니다. 확인 필요 목록을 다시 보고 확인해 주세요.",
+        )
+    };
+    if !overlap::overlaps(&a, &b) {
+        return Err(changed());
+    }
+    let pair = overlap::pair(&a, &b);
+    if pair.fingerprint != fingerprint {
+        return Err(changed());
+    }
+    overlap_repo::upsert(conn, &pair, now)?;
+    // 값(이름·프로그램명·기간)은 적지 않는다 — 내부 번호만
+    audit::add(
+        conn,
+        now,
+        Action::CareerOverlapAck,
+        Some(a_id.min(b_id)),
+        &format!("경력 기간 겹침 확인 완료 · 경력 #{} ↔ #{}", a_id.min(b_id), a_id.max(b_id)),
+    )?;
+    Ok(())
+}

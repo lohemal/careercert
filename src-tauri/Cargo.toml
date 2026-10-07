@@ -1,6 +1,6 @@
 [package]
 name = "career_cert"
-version = "0.1.2"
+version = "0.1.3"
 description = "방과후 강사 경력증명서 발급 시스템"
 authors = ["lohemal"]
 edition = "2021"

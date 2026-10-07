@@ -3,6 +3,8 @@
 pub mod audit;
 pub mod career;
 pub mod certificate;
+pub mod discard;
 pub mod instructor;
 pub mod logo;
+pub mod overlap_ack;
 pub mod settings;
